@@ -1,0 +1,7 @@
+*.vscode
+headers/test.cpp
+codeext/
+web/*.js
+web/*.wasm
+wed/
+test.cpp

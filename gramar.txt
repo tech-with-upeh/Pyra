@@ -1,0 +1,74 @@
+program        → statement*
+statement      → assignment | keyword_stmt
+assignment     → ID '=' expression
+keyword_stmt   → 'return' expression | 'print' '(' expression ')'
+expression     → term (('+' | '-') term)*
+term           → factor (('*' | '/') factor)*
+factor         → INT | ID | '(' expression ')'
+comparison → expression (('==' | '!=' | '<' | '>' | '<=' | '>=') expression)?
+
+
+
+
+////
+
+
+program        → statement*
+
+statement      → assignment
+               | keyword_stmt
+               | conditional_stmt
+
+assignment     → ID '=' expression
+
+keyword_stmt   → 'return' expression
+               | 'print' '(' expression ')'
+
+conditional_stmt
+               → keyword ('(' condition ')')? ('{' statement* '}')?
+               | keyword condition statement
+
+condition      → comparison
+
+comparison     → expression (('==' | '!=' | '<' | '>' | '<=' | '>=') expression)?
+
+expression     → term (('+' | '-') term)*
+term           → factor (('*' | '/') factor)*
+factor         → INT | ID | '(' expression ')'
+
+
+
+
+/* MY IR  /*
+vars
+funcs
+calls
+ {
+    {type: var, value: "o", dtype: bool, dvalue: true}
+    {type: funcs, value: "po", body: {...same IR....}}
+    {type: calls, value: "po", args: [ {type: var, value: o},  ] }
+    {type: while, value: "<" , args: [ { type: var, value: x }, {type: int, value: "5"} ], body: {...same IR....}}
+    {type: while, value: "true", body: {...same IR....}}
+ }
+ 
+
+
+ int main() {
+					EM_ASM({document.title = UTF8ToString($0);
+				const div_1 = document.createElement("div");
+		div_1.id = 'div_1';
+		  let text_2 = document.createElement('p');
+		text_2.id = 'text_2';
+		text_2.innerText = 'view p1';
+		document.getElementById('div_1').appendChild(text_2);
+
+
+		  let text_4 = document.createElement('p');
+		text_4.id = 'text_4';
+		text_4.innerText = 'p1';
+		document.body.appendChild(text_4);
+
+});
+	float x = 34 + 12;
+	cout << x << endl;
+}

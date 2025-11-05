@@ -1,0 +1,6 @@
+emcc generated.cpp -o main.js -s WASM=1
+
+ python -m http.server 8000  
+
+
+ rename window to pages...
