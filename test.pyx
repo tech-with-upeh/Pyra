@@ -10,7 +10,7 @@ nav = {
 txt = {
         "height":"80px",
         "backgroundColor":"blue"
-    } 
+    }
 title= "My Pyx page"
 window(title, style=body) {
     mydivid = "navbar"
@@ -22,26 +22,43 @@ window(title, style=body) {
         print("my page title is "+ title)
     }
     txtc = "text oustide div"
-    text(txtc, style=txt) 
+    text(txtc, style=txt)
 }
 */
+navh = "80px"
 
-nav = {
-        "height":"80px",
-        "backgroundColor":"green"
-    }
 div_id = 'nav'
 
 
-
-window("my tetst page", style={
-    "height":"100vh",
-    "backgroundColor":"red"
-}) {
-    view("mydiv", style=nav) {
-        img("img.png", style={
-        "height":"200px",
-        "width": "200px"
-    })
+app() {
+    page("my tetst page",id="kkk", cls="llii", style={
+        "height":"100vh",
+        "backgroundColor":"red"
+    }) {
+        view("mydiv",  cls="uioo", style={
+        "height": navh,
+        "backgroundColor":"green"
+    }, onclick=() {
+            print("hello")
+        }) {
+            img("img.png", style={
+            "height":"200px",
+            "width": "200px"
+        })
+        }
     }
 }
+
+
+/*
+app() {
+    page() {
+        view
+        text
+    }
+
+    page() {
+        view
+        text
+    }
+} */

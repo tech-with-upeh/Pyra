@@ -1,0 +1,1 @@
+emcc index.cpp -o index.js -sEXPORTED_RUNTIME_METHODS=ccall,cwrap -sALLOW_MEMORY_GROWTH

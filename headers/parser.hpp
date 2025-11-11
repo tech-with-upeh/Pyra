@@ -4,9 +4,10 @@
 #include "lexer.hpp"
 #include <vector>
 #include <string>
+#include <cctype>
 
 using namespace std;
-
+ 
 enum NODE_TYPE {
     NODE_ROOT,
     NODE_VARIABLE,
@@ -33,7 +34,8 @@ enum NODE_TYPE {
     NODE_DICT, 
     NODE_STYLE,
     //ui specifics
-    NODE_WINDOW,
+    NODE_app,
+    NODE_page,
     NODE_VIEW,
     NODE_TEXT,
     NODE_IMAGE,
@@ -76,8 +78,9 @@ string nodetostr(enum NODE_TYPE tYPE) {
         case NODE_TYPE_CHECK: return "TYPE_CHECK"; break;
         case NODE_LOOP_CTRL: return "CTRL"; break;
         case NODE_KEYVALUE: return "KEYVALUE"; break; // new
-        case NODE_DICT: return "DICT"; break; 
-        case NODE_WINDOW: return "UIWINDOW"; break;
+        case NODE_DICT: return "DICT"; break;
+        case NODE_app: return "UIapp"; break;
+        case NODE_page: return "UIpage"; break;
         case NODE_VIEW: return "UIVIEW"; break;
         case NODE_TEXT: return "UITEXT"; break;
         case NODE_IMAGE: return "UIIMAGE"; break;
@@ -781,17 +784,25 @@ public:
     
 
     // ---------- FUNCTION DECLARATION ----------
-    AST_NODE *parseFunctionDecl() {
-        proceed(TOKEN_KEYWORD); // "function"
-        if (current->TYPE != TOKEN_ID)
-            parserError("Expected function name after 'function'");
+    AST_NODE *parseFunctionDecl(bool callback=false, string typeCLK="onclick") {
+       AST_NODE *funcNode = new AST_NODE();
+        if (!callback) {
+             proceed(TOKEN_KEYWORD); // "function"
+            if (current->TYPE != TOKEN_ID) {
+                parserError("Expected function name after 'function'"); 
+            }
+            string *funcName = &current->value;
+            proceed(TOKEN_ID);
 
-        string *funcName = &current->value;
-        proceed(TOKEN_ID);
+            funcNode->TYPE = NODE_FUNCTION_DECL;
+            funcNode->value = funcName;
+        } else {
+            string *funcName = &typeCLK;
 
-        AST_NODE *funcNode = new AST_NODE();
-        funcNode->TYPE = NODE_FUNCTION_DECL;
-        funcNode->value = funcName;
+            funcNode->TYPE = NODE_FUNCTION_DECL;
+            funcNode->value = funcName;
+        }
+        
 
         proceed(TOKEN_LPAREN);
         if (current->TYPE != TOKEN_RPAREN) {
@@ -823,7 +834,7 @@ public:
             
             if (current->TYPE == TOKEN_KEYWORD)
                 // || current->value != "true" || current->value != "false"
-                if (current->value != "pass")
+                if (current->value == "continue")
                 {
                     parserError("Unexpected Keyword in Function declaration : "+ current->value);
                 }
@@ -837,17 +848,60 @@ public:
     }
 
     // ---------- FUNCTION DECLARATION ----------
+
+    AST_NODE *parseApp() {
+        string *funcName = &current->value;
+        proceed(TOKEN_KEYWORD); // "app"
+        
+        AST_NODE *appNode = new AST_NODE();
+        appNode->TYPE = NODE_app;
+        appNode->value = funcName;
+        appNode->lineno = current->lineno;
+        appNode->sourceLine = current->sourceLine;
+        appNode->extra = current->extra;
+        appNode->charno = current->charno;
+
+        proceed(TOKEN_LPAREN);
+        if (current->TYPE != TOKEN_RPAREN)
+            parserError("app() should not have arguments");
+        proceed(TOKEN_RPAREN);
+
+        proceed(TOKEN_LBRACE);
+
+        while (current->TYPE != TOKEN_RBRACE && current->TYPE != TOKEN_EOF) {
+            while (current->TYPE == TOKEN_NEWLINE)
+                proceed(TOKEN_NEWLINE);
+
+            if (current->TYPE == TOKEN_RBRACE)
+                break;
+
+            if (current->value != "page") {
+                parserError("Only page() is allowed inside app()");
+            }
+
+            appNode->SUB_STATEMENTS.push_back(parsepage());
+
+            while (current->TYPE == TOKEN_NEWLINE)
+                proceed(TOKEN_NEWLINE);
+        }
+
+        proceed(TOKEN_RBRACE);
+        return appNode;
+    }
+
+
+
     /*
-        window() {
+        page() {
 
         }
     */
-    AST_NODE *parseWindow() {
+    AST_NODE *parsepage() {
         string *funcName = &current->value;
-        proceed(TOKEN_KEYWORD); // "window"
+        proceed(TOKEN_KEYWORD); // "page"
         
         AST_NODE *funcNode = new AST_NODE();
-        funcNode->TYPE = NODE_WINDOW;
+        funcNode->TYPE = NODE_page;
         funcNode->value = funcName;
 
         proceed(TOKEN_LPAREN);
@@ -880,45 +934,101 @@ public:
                 }
                 
             } else {
-                parserError("Unexpected in Window Call : "+ current->value);
+                parserError("Unexpected in page Call : "+ current->value);
             }
 
 
             args->SUB_STATEMENTS.push_back(param);
             
 
-            while (current->TYPE == TOKEN_COMMA) {
+           while (current->TYPE == TOKEN_COMMA) {
                 proceed(TOKEN_COMMA);
-                    if(current->value != "style") {
-                        parserError("Expecting styles but got: "+ current->value);
-                    }AST_NODE *param = new AST_NODE();
+
+                // Allowed parameters
+                if (current->value != "style" &&
+                    current->value != "route" &&
+                    current->value != "id" &&
+                    current->value != "cls") 
+                {
+                    parserError("Expecting one of: 'id', 'cls', 'style', 'route' but got: " + current->value);
+                }
+
+                AST_NODE *param = new AST_NODE();
                 param->TYPE = NODE_VARIABLE;
                 param->value = &current->value;
                 param->lineno = current->lineno;
-                    param->sourceLine = current->sourceLine;
-                    param->extra = current->extra;
-                    param->charno = current->charno;
+                param->sourceLine = current->sourceLine;
+                param->extra = current->extra;
+                param->charno = current->charno;
+
+                std::string paramName = current->value;
                 proceed(TOKEN_ID);
                 proceed(TOKEN_EQ);
-                if (current->TYPE == TOKEN_ID)
-                {
-                    AST_NODE *idnode = new AST_NODE();
-                    idnode->TYPE = NODE_VARIABLE;
-                    idnode->value = &current->value;
-                    idnode->lineno = current->lineno;
-                    idnode->sourceLine = current->sourceLine;
-                    idnode->extra = current->extra;
-                    idnode->charno = current->charno;
-                    param->CHILD = idnode;
-                    proceed(TOKEN_ID);
-                }
-                else
-                {
+
+                // ───────────────────────────────────────────────────────────────
+                // Handle different parameter types based on paramName
+                // ───────────────────────────────────────────────────────────────
+
+                if (paramName == "style") {
+                    // style must be a dict always
                     param->CHILD = parseDict();
                 }
-                
+                else if (paramName == "route") {
+                    // route must be string only
+                    for (unsigned char ch : current->value) {
+                        if (isspace(ch)) {
+                            parserError("Spaces not allowed in route: " + current->value);
+                        }
+                    }
+                    if (current->TYPE != TOKEN_STRING) {
+                        parserError("Route expects a string literal");
+                    }
+
+                    AST_NODE *routeNode = new AST_NODE();
+                    routeNode->TYPE = NODE_STRING;
+                    routeNode->value = &current->value;
+                    routeNode->lineno = current->lineno;
+                    routeNode->sourceLine = current->sourceLine;
+                    routeNode->extra = current->extra;
+                    routeNode->charno = current->charno;
+                    param->CHILD = routeNode;
+                    proceed(TOKEN_STRING);
+                }
+                else if (paramName == "id" || paramName == "cls") {
+                    // id or cls can be identifier or string
+                    AST_NODE *valNode = new AST_NODE();
+
+                    if (current->TYPE == TOKEN_ID) {
+                        valNode->TYPE = NODE_VARIABLE;
+                        valNode->value = &current->value;
+                        valNode->lineno = current->lineno;
+                        valNode->sourceLine = current->sourceLine;
+                        valNode->extra = current->extra;
+                        valNode->charno = current->charno;
+                        param->CHILD = valNode;
+                        proceed(TOKEN_ID);
+                    }
+                    else if (current->TYPE == TOKEN_STRING) {
+                        valNode->TYPE = NODE_STRING;
+                        valNode->value = &current->value;
+                        valNode->lineno = current->lineno;
+                        valNode->sourceLine = current->sourceLine;
+                        valNode->extra = current->extra;
+                        valNode->charno = current->charno;
+                        param->CHILD = valNode;
+                        proceed(TOKEN_STRING);
+                    }
+                    else {
+                        parserError(paramName + " expects an identifier or a string literal");
+                    }
+                }
+
+                // ───────────────────────────────────────────────────────────────
+
                 args->SUB_STATEMENTS.push_back(param);
             }
+
+
             funcNode->CHILD = args;
         }
         proceed(TOKEN_RPAREN);
@@ -993,38 +1103,82 @@ public:
             args->SUB_STATEMENTS.push_back(param);
             
 
-            while (current->TYPE == TOKEN_COMMA) {
+           while (current->TYPE == TOKEN_COMMA) {
                 proceed(TOKEN_COMMA);
-                    if(current->value != "style") {
-                        parserError("Expecting styles but got: "+ current->value);
-                    }AST_NODE *param = new AST_NODE();
+
+                // Only allow certain parameter names
+                std::string paramName = current->value;
+                if (paramName != "style" && paramName != "cls" && paramName != "onclick" && paramName != "onlongpress") {
+                    parserError("Unexpected parameter: " + paramName);
+                }
+
+                AST_NODE *param = new AST_NODE();
                 param->TYPE = NODE_VARIABLE;
                 param->value = &current->value;
                 param->lineno = current->lineno;
-            param->sourceLine = current->sourceLine;
-           param->extra = current->extra;
-            param->charno = current->charno;
+                param->sourceLine = current->sourceLine;
+                param->extra = current->extra;
+                param->charno = current->charno;
+
                 proceed(TOKEN_ID);
                 proceed(TOKEN_EQ);
-                if (current->TYPE == TOKEN_ID)
-                {
-                    AST_NODE *idnode = new AST_NODE();
-                    idnode->TYPE = NODE_VARIABLE;
-                    idnode->value = &current->value;
-                    idnode->lineno = current->lineno;
-            idnode->sourceLine = current->sourceLine;
-           idnode->extra = current->extra;
-            idnode->charno = current->charno;
-                    param->CHILD = idnode;
-                    proceed(TOKEN_ID);
+
+                if (paramName == "style") {
+                    // style can be a dict or identifier
+                    if (current->TYPE == TOKEN_ID) {
+                        AST_NODE *idnode = new AST_NODE();
+                        idnode->TYPE = NODE_VARIABLE;
+                        idnode->value = &current->value;
+                        idnode->lineno = current->lineno;
+                        idnode->sourceLine = current->sourceLine;
+                        idnode->extra = current->extra;
+                        idnode->charno = current->charno;
+                        param->CHILD = idnode;
+                        proceed(TOKEN_ID);
+                    } else {
+                        param->CHILD = parseDict();
+                    }
+                } 
+                else if (paramName == "cls") {
+                    // cls can be string or identifier
+                    AST_NODE *clsNode = new AST_NODE();
+                    if (current->TYPE == TOKEN_STRING) {
+                        clsNode->TYPE = NODE_STRING;
+                        clsNode->value = &current->value;
+                        proceed(TOKEN_STRING);
+                    } else if (current->TYPE == TOKEN_ID) {
+                        clsNode->TYPE = NODE_VARIABLE;
+                        clsNode->value = &current->value;
+                        proceed(TOKEN_ID);
+                    } else {
+                        parserError("cls must be a string or identifier");
+                    }
+                    clsNode->lineno = current->lineno;
+                    clsNode->sourceLine = current->sourceLine;
+                    clsNode->extra = current->extra;
+                    clsNode->charno = current->charno;
+                    param->CHILD = clsNode;
+                } 
+                else if (paramName == "onclick" || paramName == "onlongpress") {
+                    // onclick / onlongpress can be function identifier or inline function
+                    if (current->TYPE == TOKEN_ID) {
+                        // function call
+                        param->CHILD = parseFunctionCall(&current->value);
+                    } else if (current->TYPE == TOKEN_KEYWORD && current->value == "def") {
+                        // inline function
+                        param->CHILD = parseFunctionDecl();
+                    } else if (current->TYPE == TOKEN_LPAREN) {
+                        // arrow function / anonymous function like () { ... }
+                        param->CHILD = parseFunctionDecl(true, paramName); // reuse parseFunctionDecl to handle body
+                    } else {
+                        parserError(paramName + " must be a function identifier or inline function");
+                    }
                 }
-                else
-                {
-                    param->CHILD = parseDict();
-                }
-                
+
+
                 args->SUB_STATEMENTS.push_back(param);
             }
+
             funcNode->CHILD = args;
         }
         proceed(TOKEN_RPAREN);
@@ -1101,14 +1255,16 @@ public:
                 proceed(TOKEN_RPAREN);
                 node->charno = current->charno;
                 return node;
-            }  else if (current->value == "function") {
+            }  else if (current->value == "def") {
                 return parseFunctionDecl();
-            } else if (current->value == "window") {
-                return parseWindow();
+            } else if (current->value == "page") {
+                return parsepage();
             } else if (current->value == "view") {
                 return parseView(NODE_VIEW);
             } else if (current->value == "text") {
                 return parseView(NODE_TEXT);
+            }else if (current->value == "app") {
+                return parseApp();
             }
             else {
                 parserError("Unknown keyword: " + current->value);

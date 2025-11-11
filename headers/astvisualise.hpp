@@ -37,7 +37,8 @@ void printAST(AST_NODE* node, int depth = 0, const std::string& relation = "ROOT
         case NODE_FUNCTION_CALL: std::cout << "FUNC_CALL"; break;
         case NODE_TYPE_CHECK: std::cout << "TYPE_CHECK"; break;
         case NODE_LOOP_CTRL: std::cout << "CTRL"; break;
-        case NODE_WINDOW: std::cout << "UIWINDOW"; break;
+        case NODE_app: std::cout << "UIapp"; break;
+        case NODE_page: std::cout << "UIpage"; break;
         case NODE_VIEW: std::cout << "UIVIEW"; break;
         case NODE_TEXT: std::cout << "UITEXT"; break;
         case NODE_ARGS: std::cout << "ARGS"; break;

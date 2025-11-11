@@ -123,7 +123,7 @@ private:
                     return scope[name].type;
                 }
             }
-            case NODE_WINDOW: {
+            case NODE_page: {
                 if (node->CHILD) {
                     VarType node1 = checkNode(node->CHILD->SUB_STATEMENTS[0]);
                     if (node1 != TYPE_STRING)

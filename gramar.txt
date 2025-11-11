@@ -52,23 +52,14 @@ calls
  }
  
 
-
- int main() {
-					EM_ASM({document.title = UTF8ToString($0);
-				const div_1 = document.createElement("div");
-		div_1.id = 'div_1';
-		  let text_2 = document.createElement('p');
-		text_2.id = 'text_2';
-		text_2.innerText = 'view p1';
-		document.getElementById('div_1').appendChild(text_2);
-
-
-		  let text_4 = document.createElement('p');
-		text_4.id = 'text_4';
-		text_4.innerText = 'p1';
-		document.body.appendChild(text_4);
-
-});
-	float x = 34 + 12;
-	cout << x << endl;
-}
+    //     [SUB] Node(UNKNOWN, value="img")
+    //       [CHILD] Node(ARGS)
+    //         [SUB] Node(STRING, value="img.png")
+    //         [SUB] Node(VARIABLE, value="style")
+    //           [CHILD] Node(DICTIONARY)
+    //             [SUB] Node(KEYVALUE)
+    //               [SUB] Node(STRING, value="height")
+    //               [SUB] Node(STRING, value="200px")
+    //             [SUB] Node(KEYVALUE)
+    //               [SUB] Node(STRING, value="width")
+    //               [SUB] Node(STRING, value="200px")
