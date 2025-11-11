@@ -1,1 +1,6 @@
+g++.exe -fdiagnostics-color=always -g main.cpp -o main.exe
+
 emcc index.cpp -o index.js -sEXPORTED_RUNTIME_METHODS=ccall,cwrap -sALLOW_MEMORY_GROWTH
+
+emcc web/generated.cpp -o web/main.js -sEXPORTED_FUNCTIONS='["_invokeCallback","_getCallbackCount", "_main"]' -sEXPORTED_RUNTIME_METHODS='["ccall","cwrap"]' -sALLOW_MEMORY_GROWT
+H 

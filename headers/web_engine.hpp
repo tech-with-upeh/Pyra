@@ -117,6 +117,105 @@ class WebEngine {
             }
         }
 
+        string MakeElement(AST_NODE *p, string parent = "root", string el = "div",string eltype = "view") {
+            string varid = eltype+"_" + to_string(idcount);
+            stringstream ss;
+            if (el != "p")
+            {
+                ss << "\n\tVNode "+varid+"(\""+ el +"\");\n";
+            }
+            
+            AST_NODE *args = p->CHILD;
+            AST_NODE *styleParam = nullptr;
+            AST_NODE *firstparam = nullptr;
+            AST_NODE *clsparam = nullptr;
+            AST_NODE *onclkParam = nullptr;
+
+            if (args && !args->SUB_STATEMENTS.empty()) {
+                firstparam = args->SUB_STATEMENTS[0];
+                for (size_t i = 1; i < args->SUB_STATEMENTS.size(); ++i) {
+                    AST_NODE *param = args->SUB_STATEMENTS[i];
+                    if (param && param->TYPE == NODE_VARIABLE && param->value && *(param->value) == "style") {
+                        styleParam = param; // styleParam->CHILD -> NODE_DICT
+                    }
+                    if (param && param->TYPE == NODE_VARIABLE && param->value && *(param->value) == "onclick") {
+                        onclkParam = param; // styleParam->CHILD -> NODE_DICT
+                    }
+                    if (param && param->TYPE == NODE_VARIABLE && param->value && *(param->value) == "cls") {
+                        clsparam = param; // styleParam->CHILD -> NODE_DICT
+                    }
+                    // if (param && param->TYPE == NODE_VARIABLE && param->value && *(param->value) == "id") {
+                    //     cout << "stylessss "  << endl;
+                    //     idparam = param; // styleParam->CHILD -> NODE_DICT
+                    // }
+                }
+            }
+            if (firstparam)
+            {
+                if (el == "img")
+                {
+                    if (firstparam->TYPE == NODE_STRING) {
+                            ss << "\t" << varid << ".attrs[\"src\"] = \"" << *(firstparam->value) << "\";\n"; 
+                        } else if (firstparam->TYPE == NODE_VARIABLE) {
+                            ss << "\t" << varid << ".attrs[\"src\"] = \"" << *(firstparam->value) << ";\n"; 
+                        } else {
+                            ss << "\t" << varid << ".attrs[\"src\"] = \"(" << exprForNode(firstparam) << ")\";\n";
+                    }
+                }
+                if (el == "p")
+                {
+                    if (firstparam->TYPE == NODE_STRING) {
+                            ss << "\n\tVNode "+varid+"(\""+ el + "\",\"" + *(firstparam->value) +"\");\n";
+                        } else if (firstparam->TYPE == NODE_VARIABLE) {
+                            ss << "\n\tVNode "+varid+"(\""+ el + "\"," + *(firstparam->value) +");\n"; 
+                        } else {
+                            cout << "gor error P text is not a string or variable";
+                            exit(1);
+                    }
+                }
+                
+                
+            }
+            
+
+            if (clsparam) {
+                //page.bodyAttrs["class"] = "main-body";
+                if (clsparam->CHILD->TYPE == NODE_STRING) {
+                    ss << "\t" << varid << ".attrs[\"class\"] = \"" << *(clsparam->CHILD->value) << "\";\n";
+                } else if (clsparam->CHILD->TYPE == NODE_VARIABLE) {
+                    ss << "\t" << varid << ".attrs[\"class\"] = " << *(clsparam->CHILD->value) << ";\n";
+                } else {
+                    ss << "\t" << varid << ".attrs[\"class\"] =\"(" << exprForNode(clsparam->CHILD) << ")\";\n";
+                }
+            }
+
+            if (styleParam && styleParam->CHILD && styleParam->CHILD->TYPE == NODE_DICT) {
+                AST_NODE *dict = styleParam->CHILD;
+                ss << "\t" << varid << ".attrs[\"style\"] = \"";
+                for (auto &kv : dict->SUB_STATEMENTS) {
+                    AST_NODE *keyNode = kv->SUB_STATEMENTS[0];
+                    AST_NODE *valNode = kv->SUB_STATEMENTS[1];
+                    string key = (keyNode->TYPE == NODE_STRING) ? *(keyNode->value) : *(keyNode->value);
+
+                    // Build page.bodyAttrs["style"] = "background-color:#f0f0f0; font-family:Arial,sans-serif; margin:20px;";
+                    if (valNode->TYPE == NODE_STRING) {
+                        ss << key << ":" << *(valNode->value) << ";";
+                    }
+                    if (valNode->TYPE == NODE_VARIABLE) {
+                        ss << key << ":" << "\"+" << *(valNode->value) << "+\";\"+\"";
+                    }
+                }
+                ss << "\";\n";
+            }
+
+            for (auto &child : p->SUB_STATEMENTS) {
+                ss << HandleAst(child, varid);
+            }
+            ss << "\n\t" << parent << ".children.push_back(" << varid << ");";
+
+            idcount++;
+            return ss.str();
+        }
 
         string HandleAst(AST_NODE *p, string parent = "root") { 
             if (!p) return "";
@@ -314,88 +413,11 @@ class WebEngine {
                     }
                     return ss.str();
                 } case NODE_VIEW: {
-                    string varid = "view_" + to_string(idcount);
-                    stringstream ss;
-                    ss << "\n\tVNode "+varid+"(\"div\");\n";
-                    AST_NODE *args = p->CHILD;
-                    AST_NODE *styleParam = nullptr;
-                    AST_NODE *idparam = nullptr;
-                    AST_NODE *clsparam = nullptr;
-                    AST_NODE *onclkParam = nullptr;
-
-                    if (args && !args->SUB_STATEMENTS.empty()) {
-                        idparam = args->SUB_STATEMENTS[0];
-                        for (size_t i = 1; i < args->SUB_STATEMENTS.size(); ++i) {
-                            AST_NODE *param = args->SUB_STATEMENTS[i];
-                            if (param && param->TYPE == NODE_VARIABLE && param->value && *(param->value) == "style") {
-                                cout << "stylessss "  << endl;
-                                styleParam = param; // styleParam->CHILD -> NODE_DICT
-                            }
-                            if (param && param->TYPE == NODE_VARIABLE && param->value && *(param->value) == "onclick") {
-                                cout << "stylessss "  << endl;
-                                onclkParam = param; // styleParam->CHILD -> NODE_DICT
-                            }
-                            if (param && param->TYPE == NODE_VARIABLE && param->value && *(param->value) == "cls") {
-                                cout << "stylessss "  << endl;
-                                clsparam = param; // styleParam->CHILD -> NODE_DICT
-                            }
-                            // if (param && param->TYPE == NODE_VARIABLE && param->value && *(param->value) == "id") {
-                            //     cout << "stylessss "  << endl;
-                            //     idparam = param; // styleParam->CHILD -> NODE_DICT
-                            // }
-                        }
-                    }
-
-                    // if (idparam) {
-                        
-                    //     if (idparam->TYPE == NODE_STRING) {
-                    //         ss << "\t" << varid << ".title = \"" << *(idparam->value) << "\";\n"; 
-                    //     } else if (idparam->TYPE == NODE_VARIABLE) {
-                    //         ss << "\t" << varid << ".title = " << *(idparam->value) << ";\n"; 
-                    //     } else {
-                    //         ss << "\t" << varid << ".title =\"(" << exprForNode(idparam) << ")\";\n";
-                    //     }
-                    // } else {
-                    //     ss << "\t" << varid << ".title = \"Create Pyra App\"\n";
-                    // }
-                    if (clsparam) {
-                        //page.bodyAttrs["class"] = "main-body";
-                        if (clsparam->CHILD->TYPE == NODE_STRING) {
-                            ss << "\t" << varid << ".attrs[\"class\"] = \"" << *(clsparam->CHILD->value) << "\";\n";
-                        } else if (clsparam->CHILD->TYPE == NODE_VARIABLE) {
-                            ss << "\t" << varid << ".attrs[\"class\"] = " << *(clsparam->CHILD->value) << ";\n";
-                        } else {
-                            ss << "\t" << varid << ".attrs[\"class\"] =\"(" << exprForNode(clsparam->CHILD) << ")\";\n";
-                        }
-                    }
-
-                    if (styleParam && styleParam->CHILD && styleParam->CHILD->TYPE == NODE_DICT) {
-                        AST_NODE *dict = styleParam->CHILD;
-                        ss << "\t" << varid << ".attrs[\"style\"] = \"";
-                        for (auto &kv : dict->SUB_STATEMENTS) {
-                            AST_NODE *keyNode = kv->SUB_STATEMENTS[0];
-                            AST_NODE *valNode = kv->SUB_STATEMENTS[1];
-                            string key = (keyNode->TYPE == NODE_STRING) ? *(keyNode->value) : *(keyNode->value);
-
-                            // Build page.bodyAttrs["style"] = "background-color:#f0f0f0; font-family:Arial,sans-serif; margin:20px;";
-                            if (valNode->TYPE == NODE_STRING) {
-                                ss << key << ":" << *(valNode->value) << ";";
-                            }
-                            if (valNode->TYPE == NODE_VARIABLE) {
-                                ss << key << ":" << "\"+" << *(valNode->value) << "+\"";
-                            }
-                        }
-                        ss << "\";\n";
-                    }
-
-                    for (auto &child : p->SUB_STATEMENTS) {
-                        ss << HandleAst(child, varid);
-                    }
-                    ss << "\n\t" << parent << ".children.push_back(" << varid << ");";
-
-                    idcount++;
-                    return ss.str();
-                    
+                    return MakeElement(p, parent, "div", "view");
+                } case NODE_TEXT: {
+                    return MakeElement(p, parent, "p", "text");
+                } case NODE_IMAGE: {
+                    return MakeElement(p, parent, "img", "img");
                 }
                  default:
                     return "";

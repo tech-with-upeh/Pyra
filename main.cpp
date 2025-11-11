@@ -9,6 +9,8 @@
 #include "headers/astvisualise.hpp"
 #include "headers/semantics.hpp"
 #include "headers/web_engine.hpp"
+
+
 using namespace std;
  
 int main(int argc, char ** argv) {
@@ -41,9 +43,9 @@ int main(int argc, char ** argv) {
     Parser parser(tokens);
     AST_NODE * root = parser.parse();
 
-    std::cout << "\n==== AST Visualization ====\n";
+    cout << "\n==== AST Visualization ====\n";
     printAST(root);
-    std::cout << "\n==== AST Visualization ENDed ====\n";
+    cout << "\n==== AST Visualization ENDed ====\n";
     cout << "Root Node has " << root->SUB_STATEMENTS.size() << " sub-statements." << endl;
     cout << "[i] Finished Parsing [i]" << endl;
 

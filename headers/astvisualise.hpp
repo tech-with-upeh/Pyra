@@ -49,7 +49,7 @@ void printAST(AST_NODE* node, int depth = 0, const std::string& relation = "ROOT
 
     // Print node value
     if (node->value && !node->value->empty())
-        std::cout << ", value=\"" << *node->value << "\"";
+        std::cout << ", value=\"" << *(node->value) << "\"";
 
     std::cout << ")\n";
 

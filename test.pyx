@@ -31,17 +31,16 @@ div_id = 'nav'
 
 
 app() {
-    page("my tetst page",id="kkk", cls="llii", style={
+    page("my tetst page",id="kkk", cls="oppppp", style={
         "height":"100vh",
-        "backgroundColor":"red"
+        "background-color":"pink"
     }) {
-        view("mydiv",  cls="uioo", style={
+        view() {
+        text("mydiv",  cls="pllllll", style={
         "height": navh,
-        "backgroundColor":"green"
-    }, onclick=() {
-            print("hello")
-        }) {
-            img("img.png", style={
+        "background-color":"green"
+    })
+        img("img.png", style={
             "height":"200px",
             "width": "200px"
         })
