@@ -1,28 +1,41 @@
-#include <iostream>
-#include <vector>
-#include <string>
-#include <unordered_map>
-#include <sstream>
-#include "utils.hpp"
 #include <emscripten.h>
-using namespace std;
 
+// Define a C function that maps to JavaScript code
+EM_JS(void, js_redirect, (const char* url_ptr), {
+    // Inside this block is raw JavaScript
+    // url_ptr is an integer (pointer) passed from C++
+    // Use Emscripten utility to convert C string to JS string
+    // const url = UTF8ToString(url_ptr);
+    // window.location.href = url;
+     const p1 = document.createElement("div");
+    p1.innerHTML = '<h1>index Page Content</h1>';
+     p1.onclick = navigateTo("/home", "home", displayHomePage);
+    document.body.appendChild(p1);
+   
+
+    // This function handles the URL change without a full page reload.
+function navigateTo(url, title, contentFunction) {
+    // 1. Update the URL in the browser's address bar
+    window.history.pushState({ page: url }, title, url);
+
+    // 2. Call the function that updates your page content/view
+    contentFunction();
+}
+
+// A function that would display your "home" content
+function displayHomePage() {
+    console.log("Welcome to the Home Page!");
+    // In a real application, you'd update DOM elements here
+    const p1 = document.createElement("div");
+    document.body.appendChild(p1);
+    p1.innerHTML = '<h1>Home Page Content</h1>';
+    // You could potentially call a Wasm function here too
+}
+});
+
+// Example usage:
 int main() {
-    unordered_map<string,string> nav;
-    nav.insert({ "height", "80px" });
-    nav.insert({ "backgroundColor", "green" });
-
-    string div_id = "nav";
-
-    string js_1 = "document.title = \"my tetst page\";\ndocument.body.style.height = \"100vh\";\ndocument.body.style.backgroundColor = \"red\";\n";
-
-    emscripten_run_script(js_1.c_str());
-    string js_2= string("var mydiv = document.createElement('div');\n") + string("mydiv.id = '") + string("mydiv") + string("' ;\n") + string("document.body.appendChild(mydiv);\n") + Map_to_Styles(nav,"mydiv");
-
-    emscripten_run_script(js_2.c_str());
-    string js_3 = "var img_2 = document.createElement('img');\nimg_2.src = 'img.png' ;\ndocument.getElementById('mydiv').appendChild(img_2);\nimg_2.style.height = \"200px\";\nimg_2.style.width = \"200px\";\n";
-
-    emscripten_run_script(js_3.c_str());
-
+    // ... some C++ logic ...
+    js_redirect("https://www.example.com/new_page");
     return 0;
 }
