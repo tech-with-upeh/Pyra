@@ -4,7 +4,7 @@
 #include <iostream>
 #include <fstream>
 #include <filesystem>
-#include <string>
+#include <string> 
 #include <sstream>
 #include <vector>
 #include <unordered_map>
@@ -262,8 +262,8 @@ private:
                 return ss.str();
             }
 
-            case NODE_WINDOW: {
-                // Build JS for window: set title, optionally styles, then child UI nodes.
+            case NODE_page: {
+                // Build JS for page: set title, optionally styles, then child UI nodes.
                 // But title might be NODE_STRING or NODE_VARIABLE or expression.
                 stringstream stmt;
                 vector<pair<bool,string>> jsPieces;
@@ -401,7 +401,7 @@ private:
                 stmt << build_js_string_code(jsPieces, "    ");
                 stmt << "\n    emscripten_run_script(js_" << to_string(idcount) <<".c_str());";
                 return stmt.str();
-            }
+            } 
             default:
                 return "";
         }
