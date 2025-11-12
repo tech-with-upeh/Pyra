@@ -1,103 +1,65 @@
-#include <emscripten.h>
+#include <iostream>
+#include <fstream>
+#include <sstream>
 #include <string>
 #include <vector>
-#include <unordered_map>
-#include <sstream>
-#include <functional>
-#include <map>
 
-std::map<int, std::function<void()>> g_callbacks;
-int g_callback_counter = 1;
+#include "headers/lexer.hpp"
+#include "headers/parser.hpp"
+#include "headers/astvisualise.hpp"
+#include "headers/semantics.hpp"
+#include "headers/web_engine.hpp"
 
-struct VNode {
-    std::string tag;
-    std::string text;
-    std::vector<VNode> children;
-    std::unordered_map<std::string, std::string> attrs;
-    std::function<void()> onclick;
 
-    VNode(std::string t, std::string txt = "") : tag(t), text(txt) {}
-};
-
-// Build HTML string & assign IDs for onclick
-std::string renderToHTML(const VNode& node) {
-    std::ostringstream oss;
-    oss << "<" << node.tag;
-
-    for (auto& [k, v] : node.attrs)
-        oss << " " << k << "=\"" << v << "\"";
-
-    int node_id = 0;
-    if (node.onclick) {
-        node_id = g_callback_counter++;
-        oss << " id=\"vnode" << node_id << "\"";
-        g_callbacks[node_id] = node.onclick;
+using namespace std;
+ 
+int main(int argc, char ** argv) {
+    if (argc < 2)
+    {
+        cout << "Enter File name" << endl;
+        exit(1);
     }
+    
+    cout << "File name is: " << argv[1] << endl;
+    ifstream sourcefile(argv[1]);
 
-    oss << ">";
-    if (!node.text.empty()) oss << node.text;
-    for (auto& child : node.children)
-        oss << renderToHTML(child);
-    oss << "</" << node.tag << ">";
-
-    return oss.str();
-}
-
-// Append HTML
-EM_JS(void, appendHTML, (const char* html), {
-    const frag = document.createRange().createContextualFragment(UTF8ToString(html));
-    document.body.appendChild(frag);
-});
-
-// Attach JS click handlers that call back to C++
-EM_JS(void, wireOnClicks, (), {
-    for (let id = 1; id <= Module.ccall('getCallbackCount', 'number'); id++) {
-        const el = document.getElementById('vnode' + id);
-        if (el) {
-            el.onclick = () => {
-                Module.ccall('invokeCallback', 'void', ['number'], [id]);
-            };
-        }
+    stringstream buffer;
+    char temp;
+    while (sourcefile.get(temp))
+    {
+       buffer << temp; 
+    } 
+    buffer << ' '; // EOF marker
+    string sourcecode = buffer.str();
+    Lexer lexer(sourcecode);
+    vector<Token *> tokens = lexer.tokenize();
+    int count = 0;
+    for(Token * temp : tokens)
+    {
+        count++;
+        cout << count << "). " << temp->value << " : " << typetostring( temp->TYPE) << endl;
     }
-});
+    cout << "[i] Finished tokkesshhhnizing [i]" << endl;
+    Parser parser(tokens);
+    AST_NODE * root = parser.parse();
 
-void render(const VNode& root) {
-    std::string html = renderToHTML(root);
-    appendHTML(html.c_str());
-    wireOnClicks();
-}
+    cout << "\n==== AST Visualization ====\n";
+    printAST(root);
+    cout << "\n==== AST Visualization ENDed ====\n";
+    cout << "Root Node has " << root->SUB_STATEMENTS.size() << " sub-statements." << endl;
+    cout << "[i] Finished Parsing [i]" << endl;
 
-// Expose callback invoker to JS
-extern "C" {
-    void invokeCallback(int id) {
-        if (g_callbacks.count(id)) g_callbacks[id]();
+    SemanticAnalyzer analyzer;
+    analyzer.analyze(root);
+    cout << "[i] Finished Semantic Analyser [i]" << endl;
+    WebEngine gen;
+    if (!gen.gen(root)) {
+        std::cerr << "write failed\n";
+        return 1;
     }
-    int getCallbackCount() {
-        return g_callback_counter - 1;
-    }
-}
+    std::cout << "written generated.cpp\n";
 
-void sayGoodbye() {
-    EM_ASM(alert("Goodbye!"));
-}
-
-// ---------------- Test ----------------
-int main() {
-    VNode app("div");
-    app.attrs["style"] = "margin:20px; font-family:Arial;";
-
-    VNode h1("h1", "my h1 tag");
-    app.children.push_back(h1);
-
-    VNode btnBye("button", "Say Goodbye");
-    btnBye.onclick = sayGoodbye;
-    app.children.push_back(btnBye);
-
-    VNode btn("button", "Click Me!");
-    btn.attrs["style"] = "padding:10px 20px; font-size:16px; cursor:pointer;";
-    btn.onclick = []() { EM_ASM(alert('Button clicked!')); };
-
-    app.children.push_back(btn);
-    render(app);
+    // WebEngine webengine;
+    // cout << webengine.HandleAst(root);
     return 0;
 }

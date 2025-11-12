@@ -1,4 +1,3 @@
-#include <iostream>
 #include "vdom.hpp"
 using namespace std;
 
@@ -10,13 +9,10 @@ int main() {
 	page_1.title = "my tetst page";
 	page_1.bodyAttrs["class"] = "oppppp";
 	page_1.bodyAttrs["style"] = "height:100vh;background-color:pink;";
-	VNode view_1("div");
-	view_1.attrs["id"] = "mydivid";  
-	view_1.onclick = [] () {
-		EM_ASM(console.log("clicked!!!!"));
-	};
 
-	VNode text_1("p","mydiv txt");
+	VNode view_1("div");
+
+	VNode text_1("p","mydiv");
 	text_1.attrs["class"] = "pllllll";
 	text_1.attrs["style"] = "height:"+navh+";"+"background-color:green;";
 

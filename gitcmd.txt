@@ -1,0 +1,7 @@
+git  pull
+git restore web/generated.cpp
+git pull origin vdom-phase1
+
+git push
+
+
