@@ -3,5 +3,6 @@ git restore web/generated.cpp
 git pull origin vdom-phase1
 
 git push
-
-
+git add .
+git commit -m "update: latest changes to vdom-phase1"
+git push origin vdom-phase1
