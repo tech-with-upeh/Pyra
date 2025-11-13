@@ -123,6 +123,17 @@ private:
                     return scope[name].type;
                 }
             }
+            case NODE_app: {
+                if (!node->SUB_STATEMENTS.empty())
+                {
+                    for (auto &i : node->SUB_STATEMENTS)
+                    {
+                        cout << "App------" << nodetostr(i->TYPE) << endl;
+                        checkNode(i);
+                    }
+                }
+                return TYPE_FUNCTION;
+            }
             case NODE_page: {
                 if (node->CHILD) {
                     VarType node1 = checkNode(node->CHILD->SUB_STATEMENTS[0]);
@@ -130,11 +141,10 @@ private:
                     {
                        parserError("Title can only be a string but got: '" + *(node->CHILD->SUB_STATEMENTS[0]->value) + "'", node->CHILD->SUB_STATEMENTS[1]);
                     }
-                    cout << "--> size " << node->CHILD->SUB_STATEMENTS.size() << endl;
+                   
                     if (node->CHILD->SUB_STATEMENTS.size() > 1)
                     {
                         VarType node2 = checkNode(node->CHILD->SUB_STATEMENTS[1]->CHILD, true);
-                        cout << node2 << endl;
                         if (node2 != TYPE_DICT)
                         {
                             parserError("style can only be a Dictionary but got: '" + *(node->CHILD->SUB_STATEMENTS[1]->value) + "'", node->CHILD->SUB_STATEMENTS[1]);
@@ -143,8 +153,10 @@ private:
                 }
                 if (!node->SUB_STATEMENTS.empty())
                 {
+                    cout  << "outsidefot---> " << node->SUB_STATEMENTS.size() << endl;
                     for (auto &i : node->SUB_STATEMENTS)
                     {
+                        cout << "Checking////" << nodetostr(i->TYPE) << endl;
                         checkNode(i);
                     }
                 }
@@ -159,6 +171,7 @@ private:
             case NODE_TEXT:
             case NODE_IMAGE:
             case NODE_VIEW: {
+                cout << "UI Element Found: " << nodetostr(node->TYPE) << endl;
                 if (node->CHILD) {
                     VarType node1 = checkNode(node->CHILD->SUB_STATEMENTS[0]);
                     if (node1 != TYPE_STRING)
@@ -178,8 +191,10 @@ private:
                 }
                 if (!node->SUB_STATEMENTS.empty())
                 {
+                    cout  << "outsidefot---> " << endl;
                     for (auto &i : node->SUB_STATEMENTS)
                     {
+                        cout  << "here---> " << nodetostr(i->TYPE) << endl;
                         checkNode(i);
                     }
                 } else {

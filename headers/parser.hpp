@@ -784,24 +784,20 @@ public:
     
 
     // ---------- FUNCTION DECLARATION ----------
-    AST_NODE *parseFunctionDecl(bool callback=false, string typeCLK="onclick") {
+    AST_NODE *parseFunctionDecl(bool callback=false) {
        AST_NODE *funcNode = new AST_NODE();
+       funcNode->TYPE = NODE_FUNCTION_DECL;
         if (!callback) {
              proceed(TOKEN_KEYWORD); // "function"
             if (current->TYPE != TOKEN_ID) {
-                parserError("Expected function name after 'function'"); 
+                parserError("Expected function name after 'def'"); 
             }
             string *funcName = &current->value;
             proceed(TOKEN_ID);
 
-            funcNode->TYPE = NODE_FUNCTION_DECL;
+            
             funcNode->value = funcName;
-        } else {
-            string *funcName = &typeCLK;
-
-            funcNode->TYPE = NODE_FUNCTION_DECL;
-            funcNode->value = funcName;
-        }
+        } 
         
 
         proceed(TOKEN_LPAREN);
@@ -1104,13 +1100,17 @@ public:
             
 
            while (current->TYPE == TOKEN_COMMA) {
+                cout << "Parsing inline function jsjjsjj" << endl;
                 proceed(TOKEN_COMMA);
 
                 // Only allow certain parameter names
                 std::string paramName = current->value;
+                string* parammem = &current->value;
                 if (paramName != "style" && paramName != "cls" && paramName != "onclick" && paramName != "onlongpress") {
                     parserError("Unexpected parameter: " + paramName);
                 }
+
+                cout << "Parsing inline function for " << paramName << endl;
 
                 AST_NODE *param = new AST_NODE();
                 param->TYPE = NODE_VARIABLE;
@@ -1163,13 +1163,58 @@ public:
                     // onclick / onlongpress can be function identifier or inline function
                     if (current->TYPE == TOKEN_ID) {
                         // function call
-                        param->CHILD = parseFunctionCall(&current->value);
+                        string *funcIdent = &current->value;
+                        proceed(current->TYPE);
+                        param->CHILD = parseFunctionCall(funcIdent);
                     } else if (current->TYPE == TOKEN_KEYWORD && current->value == "def") {
                         // inline function
                         param->CHILD = parseFunctionDecl();
                     } else if (current->TYPE == TOKEN_LPAREN) {
                         // arrow function / anonymous function like () { ... }
-                        param->CHILD = parseFunctionDecl(true, paramName); // reuse parseFunctionDecl to handle body
+                            AST_NODE * funcNode = new AST_NODE();
+                            funcNode->TYPE = NODE_FUNCTION_DECL;    
+                            funcNode->value = parammem;
+                            proceed(TOKEN_LPAREN);
+                            if (current->TYPE != TOKEN_RPAREN) {
+                                AST_NODE *param = new AST_NODE();
+                                param->TYPE = NODE_VARIABLE;
+                                param->value = &current->value;
+                                proceed(TOKEN_ID);
+                                funcNode->SUB_STATEMENTS.push_back(param);
+
+                                while (current->TYPE == TOKEN_COMMA) {
+                                    proceed(TOKEN_COMMA);
+                                    AST_NODE *param = new AST_NODE();
+                                    param->TYPE = NODE_VARIABLE;
+                                    param->value = &current->value;
+                                    proceed(TOKEN_ID);
+                                    funcNode->SUB_STATEMENTS.push_back(param);
+                                }
+                            }
+                            proceed(TOKEN_RPAREN);
+
+                            // Parse function body
+                            proceed(TOKEN_LBRACE);
+                            while (current->TYPE != TOKEN_RBRACE && current->TYPE != TOKEN_EOF) {
+                                while (current->TYPE == TOKEN_NEWLINE)
+                                    proceed(TOKEN_NEWLINE);
+
+                                if (current->TYPE == TOKEN_RBRACE)
+                                    break;
+                                
+                                if (current->TYPE == TOKEN_KEYWORD)
+                                    // || current->value != "true" || current->value != "false"
+                                    if (current->value == "continue")
+                                    {
+                                        parserError("Unexpected Keyword in Function declaration : "+ current->value);
+                                    }
+                                funcNode->SUB_STATEMENTS.push_back(parseStatement());
+
+                                while (current->TYPE == TOKEN_NEWLINE)
+                                    proceed(TOKEN_NEWLINE);
+                            }
+                            proceed(TOKEN_RBRACE);
+                            param->CHILD = funcNode;// body
                     } else {
                         parserError(paramName + " must be a function identifier or inline function");
                     }
@@ -1275,7 +1320,7 @@ public:
 
     // ---------- Generic Statement ----------
     AST_NODE *parseStatement() {
-        cout << typetostring(current->TYPE) << endl;
+        cout << current->value << endl;
         if (current->TYPE == TOKEN_ID)
             return parseID();
         else if (current->TYPE == TOKEN_HASH)

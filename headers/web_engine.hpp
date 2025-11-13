@@ -370,7 +370,7 @@ class WebEngine {
                             ss << "\t" << varid << ".title =\"(" << exprForNode(titleArg) << ")\";\n";
                         }
                     } else {
-                        ss << "\t" << varid << ".title = \"Create Pyra App\"\n";
+                        ss << "\t" << varid << ".title = \"Create Pyra App\";\n";
                     }
 
                     if (clsparam) {
@@ -409,7 +409,7 @@ class WebEngine {
                     idcount++;
 
                     if (firstpage) {
-                        ss << "\n\n\trenderPage(" << varid << ");";
+                        ss << "\n\n\trenderOrPatchPage(" << varid << ");";
                     }
                     return ss.str();
                 } case NODE_VIEW: {

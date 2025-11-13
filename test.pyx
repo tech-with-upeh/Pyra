@@ -29,7 +29,6 @@ navh = "80px"
 
 div_id = 'nav'
 
-
 app() {
     page("my tetst page",id="kkk", cls="oppppp", style={
         "height":"100vh",
