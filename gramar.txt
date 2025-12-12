@@ -1,65 +1,233 @@
-program        → statement*
-statement      → assignment | keyword_stmt
-assignment     → ID '=' expression
-keyword_stmt   → 'return' expression | 'print' '(' expression ')'
-expression     → term (('+' | '-') term)*
-term           → factor (('*' | '/') factor)*
-factor         → INT | ID | '(' expression ')'
-comparison → expression (('==' | '!=' | '<' | '>' | '<=' | '>=') expression)?
+# ============================================================================
+# Language Grammar Specification
+# Based on parser.hpp implementation
+# ============================================================================
 
+# ============================================================================
+# 1. PROGRAM STRUCTURE
+# ============================================================================
 
+<program> ::= { <statement> } EOF
 
+<statement> ::= <variable_decl> NEWLINE?
+              | <function_call> NEWLINE?
+              | <print_statement> NEWLINE?
+              | <return_statement> NEWLINE?
+              | <if_statement>
+              | <while_statement>
+              | <for_statement>
+              | <function_decl>
+              | <page_decl>
+              | <view_decl>
+              | <text_decl>
+              | <image_decl>
+              | <state_operation> NEWLINE?
+              | <type_check> NEWLINE?
+              | <loop_control> NEWLINE?
+              | <comment>
+              | NEWLINE
 
-////
+# ============================================================================
+# 2. EXPRESSIONS (Operator precedence from highest to lowest)
+# ============================================================================
 
+# Level 6: Primary expressions
+<factor> ::= INTEGER
+           | STRING
+           | IDENTIFIER [ <function_call_suffix> | <postfix_incdec> ]
+           | '(' <expression> ')'
+           | <list_literal>
+           | <dict_literal>
+           | <prefix_incdec>
+           | BOOLEAN
+           | 'null'
+           | <ui_component_call>
 
-program        → statement*
+# Level 5: Postfix increment/decrement
+<postfix_incdec> ::= ('++' | '--')
 
-statement      → assignment
-               | keyword_stmt
-               | conditional_stmt
+# Level 4: Prefix increment/decrement  
+<prefix_incdec> ::= ('++' | '--') IDENTIFIER
 
-assignment     → ID '=' expression
+# Level 3: Multiplication/Division
+<term> ::= <factor> { ('*' | '/') <factor> }
 
-keyword_stmt   → 'return' expression
-               | 'print' '(' expression ')'
+# Level 2: Addition/Subtraction
+<expression> ::= <term> { ('+' | '-') <term> }
 
-conditional_stmt
-               → keyword ('(' condition ')')? ('{' statement* '}')?
-               | keyword condition statement
+# Level 1: Comparison operators
+<comparison> ::= <expression> { 
+                  ('==' | '!=' | '>' | '<' | '>=' | '<=' | '!') 
+                  <expression> 
+                }
 
-condition      → comparison
+# ============================================================================
+# 3. VARIABLES AND ASSIGNMENT
+# ============================================================================
 
-comparison     → expression (('==' | '!=' | '<' | '>' | '<=' | '>=') expression)?
+<variable_decl> ::= IDENTIFIER (
+                     '=' <comparison>                    # Regular assignment
+                   | ('++' | '--')                       # Postfix increment
+                   | <function_call_suffix>              # Function call result
+                   )?
 
-expression     → term (('+' | '-') term)*
-term           → factor (('*' | '/') factor)*
-factor         → INT | ID | '(' expression ')'
+# ============================================================================
+# 4. DATA STRUCTURES
+# ============================================================================
 
+<list_literal> ::= '[' [ <expression> { ',' <expression> } ] ']'
 
+<dict_literal> ::= [ '#' ] '{' 
+                    [ <keyvalue_pair> { ',' <keyvalue_pair> } ] 
+                  '}'
 
+<keyvalue_pair> ::= (IDENTIFIER | STRING) ':' <expression>
 
-/* MY IR  /*
-vars
-funcs
-calls
- {
-    {type: var, value: "o", dtype: bool, dvalue: true}
-    {type: funcs, value: "po", body: {...same IR....}}
-    {type: calls, value: "po", args: [ {type: var, value: o},  ] }
-    {type: while, value: "<" , args: [ { type: var, value: x }, {type: int, value: "5"} ], body: {...same IR....}}
-    {type: while, value: "true", body: {...same IR....}}
- }
- 
+# ============================================================================
+# 5. FUNCTIONS
+# ============================================================================
 
-    //     [SUB] Node(UNKNOWN, value="img")
-    //       [CHILD] Node(ARGS)
-    //         [SUB] Node(STRING, value="img.png")
-    //         [SUB] Node(VARIABLE, value="style")
-    //           [CHILD] Node(DICTIONARY)
-    //             [SUB] Node(KEYVALUE)
-    //               [SUB] Node(STRING, value="height")
-    //               [SUB] Node(STRING, value="200px")
-    //             [SUB] Node(KEYVALUE)
-    //               [SUB] Node(STRING, value="width")
-    //               [SUB] Node(STRING, value="200px")
+<function_call> ::= IDENTIFIER '(' [ <argument_list> ] ')'
+<function_call_suffix> ::= '(' [ <argument_list> ] ')'
+<argument_list> ::= <expression> { ',' <expression> }
+
+<function_decl> ::= 'def' IDENTIFIER '(' [ <parameter_list> ] ')' 
+                    '{' { <statement> } '}'
+<parameter_list> ::= IDENTIFIER { ',' IDENTIFIER }
+
+<inline_function> ::= '(' [ <parameter_list> ] ')' '{' { <statement> } '}'
+
+# ============================================================================
+# 6. CONTROL FLOW
+# ============================================================================
+
+<if_statement> ::= 'if' '(' <comparison> ')' '{' { <statement> } '}'
+                   { 'else' 'if' '(' <comparison> ')' '{' { <statement> } '}' }
+                   [ 'else' '{' { <statement> } '}' ]
+
+<while_statement> ::= 'while' '(' <comparison> ')' '{' { <statement> } '}'
+
+<for_statement> ::= 'for' '(' 
+                    IDENTIFIER ':' 
+                    <comparison> ':' 
+                    <increment> 
+                    ')' '{' { <statement> } '}'
+
+<increment> ::= IDENTIFIER ('++' | '--' | '=' <expression>)
+
+<loop_control> ::= 'continue' | 'break' | 'pass'
+
+# ============================================================================
+# 7. BUILT-IN STATEMENTS
+# ============================================================================
+
+<print_statement> ::= 'print' '(' <comparison> ')'
+<return_statement> ::= 'return' <comparison>
+<type_check> ::= 'type' '(' <factor> ')'
+
+# ============================================================================
+# 8. UI COMPONENTS
+# ============================================================================
+
+<ui_component_call> ::= <page_decl> | <view_decl> | <text_decl> | <image_decl>
+
+<page_decl> ::= 'page' '(' 
+                (STRING | IDENTIFIER) 
+                [ ',' <page_parameter> { ',' <page_parameter> } ] 
+                ')' '{' { <statement> } '}'
+
+<page_parameter> ::= 'style' '=' <dict_literal>
+                   | 'route' '=' STRING
+                   | ('id' | 'cls') '=' (STRING | IDENTIFIER)
+
+<view_decl> ::= ('view' | 'text' | 'img') '(' 
+                [ (STRING | IDENTIFIER) ]
+                [ ',' <view_parameter> { ',' <view_parameter> } ] 
+                ')' ( '{' { <statement> } '}' | NEWLINE )
+
+<view_parameter> ::= ('id' | 'cls' | 'style' | 'onclick' | 'onlongpress') '=' 
+                     ( STRING 
+                     | IDENTIFIER 
+                     | <dict_literal>
+                     | <function_call>
+                     | <inline_function>
+                     )
+
+# ============================================================================
+# 9. STATE MANAGEMENT
+# ============================================================================
+
+<state_operation> ::= '@' ( 
+                       IDENTIFIER ':' <comparison>           # Get state
+                     | 'state' IDENTIFIER ':' <comparison>   # Set state
+                     )
+
+# ============================================================================
+# 10. COMMENTS
+# ============================================================================
+
+<comment> ::= '#' .* NEWLINE
+            | '/*' .* '*/'
+
+# ============================================================================
+# 11. TOKENS (Lexical Grammar)
+# ============================================================================
+
+# Literals
+INTEGER    ::= [0-9]+
+STRING     ::= '"' ( [^"\n] | '\"' )* '"'
+            | "'" ( [^'\n] | "\'" )* "'"
+BOOLEAN    ::= 'true' | 'false'
+
+# Identifiers  
+IDENTIFIER ::= [a-zA-Z_][a-zA-Z0-9_]*
+
+# Keywords
+KEYWORDS   ::= 'if' | 'else' | 'while' | 'for' | 'def' | 'return' 
+             | 'print' | 'type' | 'page' | 'view' | 'text' | 'img' 
+             | 'true' | 'false' | 'null' | 'continue' | 'break' 
+             | 'pass' | 'state'
+
+# Operators
+OPERATORS  ::= '+' | '-' | '*' | '/' | '=' | '==' | '!=' | '>' | '<' 
+             | '>=' | '<=' | '!' | '++' | '--' | ':' | '@' | '#'
+
+# Punctuation
+PUNCTUATION ::= '(' | ')' | '{' | '}' | '[' | ']' | ',' | ';'
+
+# Whitespace
+NEWLINE    ::= '\n' | '\r\n'
+WHITESPACE ::= [ \t]+
+
+# ============================================================================
+# 12. PRECEDENCE TABLE (from parser implementation)
+# ============================================================================
+
+# Level | Operators             | Associativity
+# -------+-----------------------+---------------
+#   6    | () [] {}              | Left-to-right
+#   5    | ++ -- (postfix)       | Left-to-right
+#   4    | ++ -- (prefix)        | Right-to-left
+#   3    | * /                   | Left-to-right
+#   2    | + -                   | Left-to-right
+#   1    | == != > < >= <= !     | Left-to-right
+#   0    | = : @                 | Right-to-left
+
+# ============================================================================
+# 13. SYNTAX NOTES
+# ============================================================================
+
+# 1. Semicolons are not required; statements are separated by newlines
+# 2. Blocks are always delimited by braces { }
+# 3. Parentheses around conditions in if/while/for are optional but recommended
+# 4. Function calls without arguments require empty parentheses: func()
+# 5. UI components can have either a block body or end with newline
+# 6. Comments: # for line comments, /* */ for block comments
+# 7. Dictionary keys can be identifiers or strings
+# 8. State operations use @ prefix: @variable: value or @state variable: value
+# 9. Type checking: type(expression) returns the type as string
+# 10. List and dict literals can be empty: [] or {}
+
+# ============================================================================
+# END OF GRAMMAR
+# ============================================================================
