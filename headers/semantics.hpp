@@ -4,6 +4,7 @@
 #include <unordered_map>
 #include <string>
 #include <vector>
+#include <span>
 
 enum VarType {
     TYPE_UNKNOWN,
@@ -45,11 +46,10 @@ private:
     std::vector<std::string> calledFunctions;
 
     void parserError(const std::string &message, AST_NODE* current) {
-        std::cerr << "\nSEM-Error: " << message
+        std::cerr << "\nSemantics Error: " << message
                   << " at line " << current->lineno
                   << ", column " << current->charno << "\n";
         std::cerr << "  " << current->lineno << " | " << current->sourceLine << "\n";
-        std::cerr << "    ";
         for (int i = 1; i < (current->charno+to_string(current->lineno).length()+1); ++i)
             std::cerr << " ";
         for (int i = 0; i < current->value->length(); i++)
@@ -60,7 +60,7 @@ private:
         std::exit(1);
     }
 
-    VarType checkNode(AST_NODE *node, bool uiexcept = false) {
+    VarType checkNode(AST_NODE *node, bool uiexcept = false, bool funcdecl = false) {
         if (!node) return TYPE_UNKNOWN;
 
         switch (node->TYPE) {
@@ -110,16 +110,22 @@ private:
             }
 
             // Variable declaration or assignment
+            case NODE_SETSTATE:
             case NODE_VARIABLE: {
                 std::string name = *node->value;
                 if (node->CHILD) {
                     VarType rhsType = checkNode(node->CHILD);
                     scope[name] = {rhsType, true};
+                    cout << "created type is---> " << rhsType << endl;
                     return rhsType;
                 } else {
                     // variable usage
-                    if (scope.find(name) == scope.end() || !scope[name].initialized)
+                    auto it = scope.find(name);
+                    
+                    if(it == scope.end() || !it->second.initialized) {  
                         parserError("Variable '" + name + "' used before assignment.", node);
+                    }
+                   
                     return scope[name].type;
                 }
             }
@@ -144,19 +150,22 @@ private:
                    
                     if (node->CHILD->SUB_STATEMENTS.size() > 1)
                     {
-                        VarType node2 = checkNode(node->CHILD->SUB_STATEMENTS[1]->CHILD, true);
-                        if (node2 != TYPE_DICT)
+                        for (auto it = node->CHILD->SUB_STATEMENTS.begin() +1; it != node->CHILD->SUB_STATEMENTS.end(); ++it)
                         {
-                            parserError("style can only be a Dictionary but got: '" + *(node->CHILD->SUB_STATEMENTS[1]->value) + "'", node->CHILD->SUB_STATEMENTS[1]);
+                            AST_NODE* it_node = *it;
+                            VarType node2 = checkNode(it_node->CHILD, true);
+                            if (node2 != TYPE_DICT && node2 != TYPE_STRING)
+                            {
+                                parserError("Segmentation Error: Unknown Type in Args in page() but got: '" + *(it_node->value) + "'", it_node);
+                            }
                         }
                     }
                 }
                 if (!node->SUB_STATEMENTS.empty())
                 {
-                    cout  << "outsidefot---> " << node->SUB_STATEMENTS.size() << endl;
                     for (auto &i : node->SUB_STATEMENTS)
                     {
-                        cout << "Checking////" << nodetostr(i->TYPE) << endl;
+                        cout << "Checking-->" << nodetostr(i->TYPE) << endl;
                         checkNode(i);
                     }
                 }
@@ -171,21 +180,24 @@ private:
             case NODE_TEXT:
             case NODE_IMAGE:
             case NODE_VIEW: {
-                cout << "UI Element Found: " << nodetostr(node->TYPE) << endl;
                 if (node->CHILD) {
+                    
                     VarType node1 = checkNode(node->CHILD->SUB_STATEMENTS[0]);
                     if (node1 != TYPE_STRING)
                     {
-                       parserError("Title can only be a string but got: '" + *(node->CHILD->SUB_STATEMENTS[0]->value) + "'", node->CHILD->SUB_STATEMENTS[1]);
+                       parserError("Title can only be a string but got: '" + *(node->CHILD->SUB_STATEMENTS[0]->value) + "'", node->CHILD->SUB_STATEMENTS[0]);
                     }
-                    cout << "--> size " << node->CHILD->SUB_STATEMENTS.size() << endl;
+                    
                     if (node->CHILD->SUB_STATEMENTS.size() > 1)
                     {
-                        VarType node2 = checkNode(node->CHILD->SUB_STATEMENTS[1]->CHILD, true);
-                        cout << node2 << endl;
-                        if (node2 != TYPE_DICT)
+                        for (auto it = node->CHILD->SUB_STATEMENTS.begin() +1; it != node->CHILD->SUB_STATEMENTS.end(); ++it)
                         {
-                            parserError("style can only be a Dictionary but got: '" + *(node->CHILD->SUB_STATEMENTS[1]->value) + "'", node->CHILD->SUB_STATEMENTS[1]);
+                            AST_NODE* it_node = *it;
+                            VarType node2 = checkNode(it_node->CHILD, true, true);
+                            if (node2 != TYPE_DICT && node2 != TYPE_STRING && node2 != TYPE_FUNCTION)
+                            {
+                                parserError("Segmentation Error: Unknown Type in Args in page() but got: '" + *(it_node->value) + "'", it_node);
+                            }
                         }
                     }
                 }
@@ -229,6 +241,28 @@ private:
             case NODE_FUNCTION_DECL: {
                 std::string name = *node->value;
                 declaredFunctions[name] = {TYPE_FUNCTION, true};
+                
+                // Register arguments in scope
+                if (node->CHILD && node->CHILD->TYPE == NODE_ARGS) {
+                    for (auto param : node->CHILD->SUB_STATEMENTS) {
+                        if (funcdecl)
+                        {
+                            auto it = scope.find(*param->value);
+                    
+                            if(it == scope.end() || !it->second.initialized) {  
+                                parserError("Variable '" + *param->value + "' used before assignment.", node->CHILD);
+                            }
+                        }
+                        else
+                        {
+                            if (param->TYPE == NODE_VARIABLE) {
+                             std::string paramName = *param->value;
+                             scope[paramName] = {TYPE_UNKNOWN, true}; 
+                        }
+                        }
+                    }
+                }
+
                 // Check the function body
                 for (auto stmt : node->SUB_STATEMENTS)
                     checkNode(stmt);

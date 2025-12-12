@@ -40,7 +40,11 @@ enum NODE_TYPE {
     NODE_TEXT,
     NODE_IMAGE,
     NODE_INPUT,
-    NODE_ARGS
+    NODE_ARGS,
+
+    //framework logic
+    NODE_SETSTATE,
+    NODE_GETSTATE
 };
 
 struct AST_NODE {
@@ -86,6 +90,8 @@ string nodetostr(enum NODE_TYPE tYPE) {
         case NODE_IMAGE: return "UIIMAGE"; break;
         case NODE_INPUT: return "UIINPUT"; break;
         case NODE_ARGS: return "ARGS"; break;
+        case NODE_SETSTATE: return "SETSTATE"; break;
+        case NODE_GETSTATE: return "GETSTATE"; break;
         default: return "UNKNOWN"; break;
     }
 }
@@ -153,6 +159,18 @@ public:
         string *buffer = &current->value;
         proceed(TOKEN_ID);
 
+        if (current->TYPE == TOKEN_NEWLINE || current->TYPE == TOKEN_EOF)
+        {
+            AST_NODE *node = new AST_NODE();
+        node->TYPE = NODE_VARIABLE;
+        node->value = buffer;
+            node->lineno = current->lineno;
+            node->sourceLine = current->sourceLine;
+            node->extra = current->extra;
+            node->charno = current->charno;
+        return node;
+        }
+        
         if (current->TYPE == TOKEN_INCREMENT || current->TYPE == TOKEN_DECREMENT) {
             // Handle postfix i++ or i--
             string op = current->value;
@@ -391,18 +409,24 @@ public:
             return node;
         }
 
-        // ✅ handle boolean literals
-        if (current->TYPE == TOKEN_KEYWORD &&
-            (current->value == "true" || current->value == "false")) {
+        if (current->TYPE == TOKEN_KEYWORD)
+        {
+            if (current->value == "page") {
+                return parsepage();
+            } else if (current->value == "view") {
+                return parseView(NODE_VIEW);
+            } else if (current->value == "text") {
+                return parseView(NODE_TEXT);
+            } else if (current->value == "true" || current->value == "false") {
                 AST_NODE *node = parseBOOL(NODE_BOOL);
                 proceed(current->TYPE);
                 node->lineno = current->lineno;
-            node->sourceLine = current->sourceLine;
-            node->extra = current->extra;
-            node->charno = current->charno;
+                node->sourceLine = current->sourceLine;
+                node->extra = current->extra;
+                node->charno = current->charno;
                 return node;
             }
-            
+        }
 
         if (current->TYPE == TOKEN_ID) {
             string *varName = &current->value;
@@ -801,12 +825,15 @@ public:
         
 
         proceed(TOKEN_LPAREN);
+        AST_NODE *args = new AST_NODE();
+        args->TYPE = NODE_ARGS;
+
         if (current->TYPE != TOKEN_RPAREN) {
             AST_NODE *param = new AST_NODE();
             param->TYPE = NODE_VARIABLE;
             param->value = &current->value;
             proceed(TOKEN_ID);
-            funcNode->SUB_STATEMENTS.push_back(param);
+            args->SUB_STATEMENTS.push_back(param);
 
             while (current->TYPE == TOKEN_COMMA) {
                 proceed(TOKEN_COMMA);
@@ -814,9 +841,10 @@ public:
                 param->TYPE = NODE_VARIABLE;
                 param->value = &current->value;
                 proceed(TOKEN_ID);
-                funcNode->SUB_STATEMENTS.push_back(param);
+                args->SUB_STATEMENTS.push_back(param);
             }
         }
+        funcNode->CHILD = args;
         proceed(TOKEN_RPAREN);
 
         // Parse function body
@@ -844,48 +872,6 @@ public:
     }
 
     // ---------- FUNCTION DECLARATION ----------
-
-    AST_NODE *parseApp() {
-        string *funcName = &current->value;
-        proceed(TOKEN_KEYWORD); // "app"
-        
-        AST_NODE *appNode = new AST_NODE();
-        appNode->TYPE = NODE_app;
-        appNode->value = funcName;
-        appNode->lineno = current->lineno;
-        appNode->sourceLine = current->sourceLine;
-        appNode->extra = current->extra;
-        appNode->charno = current->charno;
-
-        proceed(TOKEN_LPAREN);
-        if (current->TYPE != TOKEN_RPAREN)
-            parserError("app() should not have arguments");
-        proceed(TOKEN_RPAREN);
-
-        proceed(TOKEN_LBRACE);
-
-        while (current->TYPE != TOKEN_RBRACE && current->TYPE != TOKEN_EOF) {
-            while (current->TYPE == TOKEN_NEWLINE)
-                proceed(TOKEN_NEWLINE);
-
-            if (current->TYPE == TOKEN_RBRACE)
-                break;
-
-            if (current->value != "page") {
-                parserError("Only page() is allowed inside app()");
-            }
-
-            appNode->SUB_STATEMENTS.push_back(parsepage());
-
-            while (current->TYPE == TOKEN_NEWLINE)
-                proceed(TOKEN_NEWLINE);
-        }
-
-        proceed(TOKEN_RBRACE);
-        return appNode;
-    }
-
-
 
     /*
         page() {
@@ -1100,18 +1086,14 @@ public:
             
 
            while (current->TYPE == TOKEN_COMMA) {
-                cout << "Parsing inline function jsjjsjj" << endl;
                 proceed(TOKEN_COMMA);
 
                 // Only allow certain parameter names
                 std::string paramName = current->value;
                 string* parammem = &current->value;
-                if (paramName != "style" && paramName != "cls" && paramName != "onclick" && paramName != "onlongpress") {
+                if (paramName != "style" && paramName != "cls" && paramName != "onclick" && paramName != "onlongpress" && paramName != "id") {
                     parserError("Unexpected parameter: " + paramName);
                 }
-
-                cout << "Parsing inline function for " << paramName << endl;
-
                 AST_NODE *param = new AST_NODE();
                 param->TYPE = NODE_VARIABLE;
                 param->value = &current->value;
@@ -1158,8 +1140,31 @@ public:
                     clsNode->extra = current->extra;
                     clsNode->charno = current->charno;
                     param->CHILD = clsNode;
-                } 
-                else if (paramName == "onclick" || paramName == "onlongpress") {
+                }else if (paramName == "id") {
+                    if (typw == NODE_VIEW)
+                    {
+                        parserError("Id parameter is not allowed in view()\n Id is the first parameter of view()");
+                    }
+                    
+                    // cls can be string or identifier
+                    AST_NODE *clsNode = new AST_NODE();
+                    if (current->TYPE == TOKEN_STRING) {
+                        clsNode->TYPE = NODE_STRING;
+                        clsNode->value = &current->value;
+                        proceed(TOKEN_STRING);
+                    } else if (current->TYPE == TOKEN_ID) {
+                        clsNode->TYPE = NODE_VARIABLE;
+                        clsNode->value = &current->value;
+                        proceed(TOKEN_ID);
+                    } else {
+                        parserError("Id must be a string or identifier");
+                    }
+                    clsNode->lineno = current->lineno;
+                    clsNode->sourceLine = current->sourceLine;
+                    clsNode->extra = current->extra;
+                    clsNode->charno = current->charno;
+                    param->CHILD = clsNode;
+                }  else if (paramName == "onclick" || paramName == "onlongpress") {
                     // onclick / onlongpress can be function identifier or inline function
                     if (current->TYPE == TOKEN_ID) {
                         // function call
@@ -1174,21 +1179,38 @@ public:
                             AST_NODE * funcNode = new AST_NODE();
                             funcNode->TYPE = NODE_FUNCTION_DECL;    
                             funcNode->value = parammem;
+                            funcNode->lineno = current->lineno;
+                            funcNode->sourceLine = current->sourceLine;
+                            funcNode->extra = current->extra;
+                            funcNode->charno = current->charno;
+                        
                             proceed(TOKEN_LPAREN);
                             if (current->TYPE != TOKEN_RPAREN) {
                                 AST_NODE *param = new AST_NODE();
                                 param->TYPE = NODE_VARIABLE;
                                 param->value = &current->value;
+                                AST_NODE * args = new AST_NODE();
+                                args->TYPE = NODE_ARGS;
+                                args->lineno = current->lineno;
+                                args->sourceLine = current->sourceLine;
+                                args->extra = current->extra;
+                                args->charno = current->charno;
+                                funcNode->CHILD = args;
                                 proceed(TOKEN_ID);
-                                funcNode->SUB_STATEMENTS.push_back(param);
+                                funcNode->CHILD->SUB_STATEMENTS.push_back(param);
 
                                 while (current->TYPE == TOKEN_COMMA) {
                                     proceed(TOKEN_COMMA);
                                     AST_NODE *param = new AST_NODE();
                                     param->TYPE = NODE_VARIABLE;
                                     param->value = &current->value;
+                                    param->lineno = current->lineno;
+                                    param->sourceLine = current->sourceLine;
+                                    param->extra = current->extra;
+                                    param->charno = current->charno;
+                                    
                                     proceed(TOKEN_ID);
-                                    funcNode->SUB_STATEMENTS.push_back(param);
+                                    funcNode->CHILD->SUB_STATEMENTS.push_back(param);
                                 }
                             }
                             proceed(TOKEN_RPAREN);
@@ -1308,8 +1330,6 @@ public:
                 return parseView(NODE_VIEW);
             } else if (current->value == "text") {
                 return parseView(NODE_TEXT);
-            }else if (current->value == "app") {
-                return parseApp();
             }
             else {
                 parserError("Unknown keyword: " + current->value);
@@ -1318,12 +1338,74 @@ public:
         return nullptr;
     }
 
+    AST_NODE * parseState() {
+        AST_NODE * node = new AST_NODE;
+        
+        node->TYPE = NODE_SETSTATE;
+        if (current->TYPE != TOKEN_KEYWORD && current->value != "state") {
+            parserError("Expected identifier after 'state'");
+        }
+        proceed(current->TYPE);
+        string val = current->value;
+         proceed(TOKEN_ID);
+         node->value = new string(val);
+        proceed(TOKEN_COLON);
+        node->CHILD = parseComparison();
+        node->charno = current->charno;
+         node->lineno = current->lineno;
+            node->sourceLine = current->sourceLine;
+           node->extra = current->extra;
+        
+        
+        return node;
+    }
+
+    AST_NODE * parseSetState() {
+        AST_NODE * node = new AST_NODE;
+        
+        node->TYPE = NODE_GETSTATE;
+        if (current->TYPE != TOKEN_ID) {
+            parserError("Expected identifier after 'state'");
+        }
+
+        string val = current->value;
+         proceed(TOKEN_ID);
+         node->value = new string(val);
+        proceed(TOKEN_COLON);
+        node->CHILD = parseComparison();
+        node->charno = current->charno;
+         node->lineno = current->lineno;
+            node->sourceLine = current->sourceLine;
+           node->extra = current->extra;
+        
+        return node;
+    }
+
+    AST_NODE * parseAtSym() {
+        AST_NODE * node = new AST_NODE;
+        proceed(current->TYPE);
+        if (current->TYPE == TOKEN_ID) {
+            node = parseSetState();
+        }
+        else if (current->TYPE == TOKEN_KEYWORD)
+        {
+            node = parseState();
+        } else {
+            parserError("Expected identifier or 'state' after '@', got: " + current->value );
+        }
+
+        
+        
+        return node;
+    }
+
     // ---------- Generic Statement ----------
     AST_NODE *parseStatement() {
-        cout << current->value << endl;
         if (current->TYPE == TOKEN_ID)
             return parseID();
-        else if (current->TYPE == TOKEN_HASH)
+        else if (current->TYPE == TOKEN_ATSYM) {
+            return parseAtSym();
+        } else if (current->TYPE == TOKEN_HASH)
             {proceed(current->TYPE);
             while (current->TYPE != TOKEN_NEWLINE)
             {

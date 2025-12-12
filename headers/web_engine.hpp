@@ -15,8 +15,9 @@ class WebEngine {
         // A runtime environment for values known at generation-time (optional).
         // You can populate this map before calling gen() if you want generator-time resolution.
         unordered_map<string,string> env;
+        stringstream filebuffer;
 
-        WebEngine() : idcount(1) {}
+        WebEngine() : idcount(1) , pagecount(1) {}
 
         string pyxtocpp_type(enum NODE_TYPE type) {
             switch (type)
@@ -39,22 +40,29 @@ class WebEngine {
         }
 
         bool gen(AST_NODE *root) {
-            stringstream filebuffer;
+            filebuffer << "#include <iostream>\n";
             filebuffer << "#include \"vdom.hpp\"\n";
             filebuffer << "using namespace std;\n\n";
 
-            // stringstream mainbuffer;
+            filebuffer << R"(void updateUI() {
+    // Re-render the current page
+    if (GlobalState::getCurrentPage()) {
+        GlobalState::getCurrentPage()->render();
+    }
+})";
 
-            filebuffer << "int main() {\n";
+            stringstream mainbuffer;
+
+            mainbuffer << "int main() {\n";
 
             // Top-level: convert each root sub-statement into C++ statements
             for (auto &stmt : root->SUB_STATEMENTS) {
                 string out = HandleAst(stmt);
                 if (!out.empty()) {
-                    filebuffer << out << "\n";
+                    mainbuffer << out << "\n";
                 }
             }
-
+            filebuffer << mainbuffer.str();
             filebuffer << "    return 0;\n}\n";
 
            
@@ -64,6 +72,8 @@ class WebEngine {
         }
     private:
         int idcount;
+        int pagecount;
+        vector<string> statevars;
         
 
         // Escape C-style string literal (for embedding fixed literal pieces in generated C++ code)
@@ -87,12 +97,7 @@ class WebEngine {
         static string cpp_literal(const string &s) {
             return "\"" + escape_for_cpp_literal(s) + "\"";
         }
-        // Resolve a node for expression usage when generating C++ expressions.
-        // For NODE_STRING: returns "\"literal\"" (C++ literal)
-        // For NODE_INT: returns the integer literal string
-        // For NODE_VARIABLE: returns the variable name (so calling code will reference its value)
-        // For NODE_BINARY_OP: returns an expression combining children's expressions.
-        // This function returns a C++ expression string (no trailing semicolon).
+        
         string exprForNode(AST_NODE *p) {
             if (!p) return string("/*null*/");
 
@@ -103,12 +108,25 @@ class WebEngine {
                     return *(p->value);
                 case NODE_VARIABLE:
                     // use variable name directly — assumes the generated C++ defines this name earlier
-                    return *(p->value);
+                    return HandleAst(p);
                 case NODE_BINARY_OP: {
                     string lhs = exprForNode(p->SUB_STATEMENTS[0]);
                     string rhs = exprForNode(p->SUB_STATEMENTS[1]);
                     string op = *(p->value);
                     return "(" + lhs + " " + op + " " + rhs + ")";
+                }
+                case NODE_UNARY_OP: {
+                    string operand = exprForNode(p->SUB_STATEMENTS[0]);
+                    string op = *(p->value);
+                    if (op == "++")
+                    {
+                        op = "+";
+                    }
+                    else
+                    {
+                        op = "-";
+                    }
+                    return "(" + operand + " " + op + " " + operand + ")";
                 }
                 default:
                     // fallback: try to use value if present
@@ -117,8 +135,97 @@ class WebEngine {
             }
         }
 
-        string MakeElement(AST_NODE *p, string parent = "root", string el = "div",string eltype = "view") {
+        string MakePage(AST_NODE *p, string var) {
+                    string varid = var;
+                    stringstream ss;
+                    filebuffer << "\n\tVPage "+varid+";\n";
+                    AST_NODE *args = p->CHILD;
+                    AST_NODE *styleParam = nullptr;
+                    AST_NODE *idparam = nullptr;
+                    AST_NODE *clsparam = nullptr;
+                    AST_NODE *routeParam = nullptr;
+                    AST_NODE *titleArg = nullptr;
+                    if (args && !args->SUB_STATEMENTS.empty()) {
+                        titleArg = args->SUB_STATEMENTS[0];
+                        for (size_t i = 1; i < args->SUB_STATEMENTS.size(); ++i) {
+                            AST_NODE *param = args->SUB_STATEMENTS[i];
+                            if (param && param->TYPE == NODE_VARIABLE && param->value && *(param->value) == "style") {
+                                cout << "stylessss "  << endl;
+                                styleParam = param; // styleParam->CHILD -> NODE_DICT
+                            }
+                            if (param && param->TYPE == NODE_VARIABLE && param->value && *(param->value) == "route") {
+                                cout << "stylessss "  << endl;
+                                routeParam = param; // styleParam->CHILD -> NODE_DICT
+                            }
+                            if (param && param->TYPE == NODE_VARIABLE && param->value && *(param->value) == "cls") {
+                                cout << "stylessss "  << endl;
+                                clsparam = param; // styleParam->CHILD -> NODE_DICT
+                            }
+                            if (param && param->TYPE == NODE_VARIABLE && param->value && *(param->value) == "id") {
+                                cout << "stylessss "  << endl;
+                                idparam = param; // styleParam->CHILD -> NODE_DICT
+                            }
+                        }
+                    }
+
+                    if (titleArg) {
+                        
+                        if (titleArg->TYPE == NODE_STRING) {
+                            ss << "\t" << varid << ".setTitle(\"" << *(titleArg->value) << "\");\n"; 
+                        } else if (titleArg->TYPE == NODE_VARIABLE) {
+                            ss << "\t" << varid << ".setTitle(" << *(titleArg->value) << ");\n"; 
+                        } else {
+                            ss << "\t" << varid << ".setTitle(\"(" << exprForNode(titleArg) << ")\");\n";
+                        }
+                    } else {
+                        ss << "\t" << varid << ".setTitle(\"Create Pyra App\");\n";
+                    }
+
+                    if (clsparam) {
+                        //page.bodyAttrs["class"] = "main-body";
+                        if (clsparam->CHILD->TYPE == NODE_STRING) {
+                            ss << "\t" << varid << ".bodyAttrs[\"class\"] = \"" << *(clsparam->CHILD->value) << "\";\n";
+                        } else if (clsparam->CHILD->TYPE == NODE_VARIABLE) {
+                            ss << "\t" << varid << ".bodyAttrs[\"class\"] = " << *(clsparam->CHILD->value) << ";\n";
+                        } else {
+                            ss << "\t" << varid << ".bodyAttrs[\"class\"] =\"(" << exprForNode(clsparam->CHILD) << ")\";\n";
+                        }
+                    }
+
+                    if (styleParam && styleParam->CHILD && styleParam->CHILD->TYPE == NODE_DICT) {
+                        AST_NODE *dict = styleParam->CHILD;
+                        ss << "\t" << varid << ".bodyAttrs[\"style\"] = \"";
+                        for (auto &kv : dict->SUB_STATEMENTS) {
+                            AST_NODE *keyNode = kv->SUB_STATEMENTS[0];
+                            AST_NODE *valNode = kv->SUB_STATEMENTS[1];
+                            string key = (keyNode->TYPE == NODE_STRING) ? *(keyNode->value) : *(keyNode->value);
+
+                            // Build page.bodyAttrs["style"] = "background-color:#f0f0f0; font-family:Arial,sans-serif; margin:20px;";
+                            if (valNode->TYPE == NODE_STRING) {
+                                ss << key << ":" << *(valNode->value) << ";";
+                            }
+                            if (valNode->TYPE == NODE_VARIABLE) {
+                                ss << key << ":" << "\"+" << *(valNode->value) << "+\"";
+                            }
+                        }
+                        ss << "\";\n";
+                    }
+
+                    for (auto &child : p->SUB_STATEMENTS) {
+                        ss << HandleAst(child, varid);
+                    }
+                    idcount++;
+                    return ss.str();
+                }
+
+        string MakeElement(AST_NODE *p, string parent = "root", string el = "div",string eltype = "view", bool isvar=false) {
+            
+            
             string varid = eltype+"_" + to_string(idcount);
+            if (isvar)
+            {
+                varid = eltype;
+            }
             stringstream ss;
             if (el != "p")
             {
@@ -130,24 +237,25 @@ class WebEngine {
             AST_NODE *firstparam = nullptr;
             AST_NODE *clsparam = nullptr;
             AST_NODE *onclkParam = nullptr;
+            AST_NODE *idparam = nullptr;
 
             if (args && !args->SUB_STATEMENTS.empty()) {
                 firstparam = args->SUB_STATEMENTS[0];
                 for (size_t i = 1; i < args->SUB_STATEMENTS.size(); ++i) {
                     AST_NODE *param = args->SUB_STATEMENTS[i];
                     if (param && param->TYPE == NODE_VARIABLE && param->value && *(param->value) == "style") {
-                        styleParam = param; // styleParam->CHILD -> NODE_DICT
+                        styleParam = param;
                     }
                     if (param && param->TYPE == NODE_VARIABLE && param->value && *(param->value) == "onclick") {
-                        onclkParam = param; // styleParam->CHILD -> NODE_DICT
+                        onclkParam = param;
                     }
                     if (param && param->TYPE == NODE_VARIABLE && param->value && *(param->value) == "cls") {
-                        clsparam = param; // styleParam->CHILD -> NODE_DICT
+                        clsparam = param;
                     }
-                    // if (param && param->TYPE == NODE_VARIABLE && param->value && *(param->value) == "id") {
-                    //     cout << "stylessss "  << endl;
-                    //     idparam = param; // styleParam->CHILD -> NODE_DICT
-                    // }
+                    if (param && param->TYPE == NODE_VARIABLE && param->value && *(param->value) == "id")
+                    {
+                        idparam = param; 
+                    }
                 }
             }
             if (firstparam)
@@ -155,11 +263,11 @@ class WebEngine {
                 if (el == "img")
                 {
                     if (firstparam->TYPE == NODE_STRING) {
-                            ss << "\t" << varid << ".attrs[\"src\"] = \"" << *(firstparam->value) << "\";\n"; 
+                            ss << "\t" << varid << ".setAttr(\"src\", \"" << *(firstparam->value) << "\");\n"; 
                         } else if (firstparam->TYPE == NODE_VARIABLE) {
-                            ss << "\t" << varid << ".attrs[\"src\"] = \"" << *(firstparam->value) << ";\n"; 
+                            ss << "\t" << varid << ".setAttr(\"src\"," << *(firstparam->value) << ");\n"; 
                         } else {
-                            ss << "\t" << varid << ".attrs[\"src\"] = \"(" << exprForNode(firstparam) << ")\";\n";
+                            ss << "\t" << varid << ".setAttr(\"src\", \"" << exprForNode(firstparam) << "\");\n";
                     }
                 }
                 if (el == "p")
@@ -173,25 +281,70 @@ class WebEngine {
                             exit(1);
                     }
                 }
+                if (el == "div")
+                {
+                    if (firstparam->TYPE == NODE_STRING) {
+                            ss << "\t" << varid << ".setAttr(\"id\", \"" << *(firstparam->value) << "\");\n"; 
+                        } else if (firstparam->TYPE == NODE_VARIABLE) {
+                            ss << "\t" << varid << ".setAttr(\"id\"," << *(firstparam->value) << ");\n"; 
+                        } else {
+                            ss << "\t" << varid << ".setAttr(\"id\", \"" << exprForNode(firstparam) << "\");\n";
+                    }
+                }
                 
                 
+                
+            }
+            
+            if (idparam)
+            {
+                if (idparam->CHILD->TYPE == NODE_STRING) {
+                            ss << "\t" << varid << ".setAttr(\"id\", \"" << *(idparam->CHILD->value) << "\");\n"; 
+                        } else if (idparam->CHILD->TYPE == NODE_VARIABLE) {
+                            ss << "\t" << varid << ".setAttr(\"id\"," << *(idparam->CHILD->value) << ");\n"; 
+                        } else {
+                            ss << "\t" << varid << ".setAttr(\"id\", \"" << exprForNode(idparam->CHILD) << "\");\n";
+                    }
             }
             
 
             if (clsparam) {
                 //page.bodyAttrs["class"] = "main-body";
                 if (clsparam->CHILD->TYPE == NODE_STRING) {
-                    ss << "\t" << varid << ".attrs[\"class\"] = \"" << *(clsparam->CHILD->value) << "\";\n";
+                    ss << "\t" << varid << ".setAttr(\"class\",  \"" << *(clsparam->CHILD->value) << "\");\n";
                 } else if (clsparam->CHILD->TYPE == NODE_VARIABLE) {
-                    ss << "\t" << varid << ".attrs[\"class\"] = " << *(clsparam->CHILD->value) << ";\n";
+                    ss << "\t" << varid << ".setAttr(\"class\",  " << *(clsparam->CHILD->value) << ");\n";
                 } else {
-                    ss << "\t" << varid << ".attrs[\"class\"] =\"(" << exprForNode(clsparam->CHILD) << ")\";\n";
+                    ss << "\t" << varid << ".setAttr(\"class\", \"(" << exprForNode(clsparam->CHILD) << "\");\n";
                 }
             }
 
+            if (onclkParam)
+            {
+                AST_NODE *chld = onclkParam->CHILD->CHILD;
+
+                ss << "\t" << varid << ".onClick([";
+                for (auto &i : chld->SUB_STATEMENTS)
+                {
+                    ss << *(i->value);
+                    if (&i != &chld->SUB_STATEMENTS.back())
+                    {
+                        ss << ", ";
+                    }
+                }
+                
+                ss << "]() {\n";
+                for (auto &i : onclkParam->CHILD->SUB_STATEMENTS)
+                {
+                    ss << "\t\t" << HandleAst(i, "root", true) << "\n";   
+                }
+                ss << "\t});\n";
+            }
+            
+
             if (styleParam && styleParam->CHILD && styleParam->CHILD->TYPE == NODE_DICT) {
                 AST_NODE *dict = styleParam->CHILD;
-                ss << "\t" << varid << ".attrs[\"style\"] = \"";
+                ss << "\t" << varid << ".setAttr(\"style\", \"";
                 for (auto &kv : dict->SUB_STATEMENTS) {
                     AST_NODE *keyNode = kv->SUB_STATEMENTS[0];
                     AST_NODE *valNode = kv->SUB_STATEMENTS[1];
@@ -205,30 +358,52 @@ class WebEngine {
                         ss << key << ":" << "\"+" << *(valNode->value) << "+\";\"+\"";
                     }
                 }
-                ss << "\";\n";
+                ss << "\");\n";
             }
 
             for (auto &child : p->SUB_STATEMENTS) {
                 ss << HandleAst(child, varid);
             }
-            ss << "\n\t" << parent << ".children.push_back(" << varid << ");";
+
+            if (!isvar)
+            {
+                ss << "\n\t" << parent << ".addChild(" << varid << ");";
+            }
+            
 
             idcount++;
             return ss.str();
         }
 
-        string HandleAst(AST_NODE *p, string parent = "root") { 
+        string HandleAst(AST_NODE *p, string parent = "root", bool funcdecl=false) { 
             if (!p) return "";
              switch (p->TYPE) {
                 case NODE_VARIABLE: {
                     // variable assignment or bare reference
                     if (!p->CHILD) {
                         // bare variable reference (as statement? unlikely). Return empty.
-                        return "";
+                        
+                            stringstream ss;
+                            if (find(statevars.begin(), statevars.end(), *(p->value)) != statevars.end())
+                            {
+                                ss << *(p->value) << "->get()";
+                                return ss.str();
+                            } else {
+                                return "\n\t"+parent + ".addChild("+ *(p->value) +");\n";
+                            }
                     } else {
                         // declaration: infer type from child
                         NODE_TYPE dtype = p->CHILD->TYPE;
-                        if (dtype == NODE_DICT) {
+                        if (find(statevars.begin(), statevars.end(), *(p->value)) != statevars.end())
+                        {
+                            // state variable assignment
+                            string varName = *(p->value);
+                            string expr = exprForNode(p->CHILD);
+                            return "\t" + varName + "->set(" + expr + ");";
+                        }
+                        else
+                        {
+                            if (dtype == NODE_DICT) {
                             // create unordered_map and insert key-values
                             string varName = *(p->value);
                             stringstream ss;
@@ -253,20 +428,63 @@ class WebEngine {
                                 ss << "    " << varName << ".insert({ " << keyCpp << ", " << valExpr << " });\n";
                             }
                             return ss.str();
-                        } else {
-                            // simple assignment: type name = expr;
-                            string varName = *(p->value);
-                            string expr = exprForNode(p->CHILD);
-                            string ctype = pyxtocpp_type(p->CHILD->TYPE);
-                            if (ctype == "ERROR") ctype = "auto";
-                            return "    " + ctype + " " + varName + " = " + expr + ";";
+                            } else if (dtype == NODE_page) {
+                                string varName = *(p->value);
+                                return MakePage(p->CHILD, varName);
+                            } else if (dtype == NODE_VIEW || dtype == NODE_TEXT || dtype == NODE_IMAGE || dtype == NODE_INPUT) {
+                                string el = "div";
+                                string eltype = *(p->value);
+                                switch (dtype)
+                                {
+                                case NODE_VIEW:
+                                    el = "div";
+                                    
+                                    break;
+                                case NODE_TEXT:
+                                    el = "p";
+                                    
+                                    break;
+                                case NODE_IMAGE:
+                                    el = "img";
+                                    
+                                    break;
+                                case NODE_INPUT:
+                                    el = "input";
+                                
+                                    break;
+                                default:
+                                    break;
+                                }
+                                return MakeElement(p->CHILD, "root", el, eltype, true);
+                            }
+                            else {
+                                // simple assignment: type name = expr;
+                                string varName = *(p->value);
+                                string expr = exprForNode(p->CHILD);
+                                string ctype = pyxtocpp_type(p->CHILD->TYPE);
+                                if (ctype == "ERROR") ctype = "auto";
+                                return "    " + ctype + " " + varName + " = " + expr + ";";
+                            }
                         }
+                                 
                     }
                 }
 
                 case NODE_PRINT: {
-                    string expr = exprForNode(p->CHILD);
-                    return "    cout << " + expr + " << endl;";
+                    if (p->CHILD->TYPE == NODE_VARIABLE)
+                    {
+                        stringstream ss;
+                        ss << "\tcout << " << HandleAst(p->CHILD, parent, funcdecl) << " << endl;";
+                        return  ss.str();
+                    }
+                    else
+                    {
+                        
+                       string expr = exprForNode(p->CHILD);
+                    return "\tcout << " + expr + " << endl;";
+                    }
+                    
+                    
                 }
                 case NODE_IF: {
                     bool haselsif = false;
@@ -315,22 +533,15 @@ class WebEngine {
                     }
                     
                     return ss.str();
-                }case NODE_app: {
-                    stringstream ss;
-                    if (!p->SUB_STATEMENTS.empty()) {
-                        for (auto &i : p->SUB_STATEMENTS) {
-                            ss << HandleAst(i);
-                        }
-                    }
-                    return ss.str();
                 } case NODE_page: {
                     bool firstpage;
-                    if (idcount == 1) {
+                    if (pagecount == 1) {
                         firstpage = true;
                     }
-                    string varid = "page_" + to_string(idcount);
+                    
+                    string varid = "page_" + to_string(pagecount);
                     stringstream ss;
-                     ss << "\n\tVPage "+varid+";\n";
+                    filebuffer << "\n\tVPage "+varid+";\n";
                     AST_NODE *args = p->CHILD;
                     AST_NODE *styleParam = nullptr;
                     AST_NODE *idparam = nullptr;
@@ -363,14 +574,14 @@ class WebEngine {
                     if (titleArg) {
                         
                         if (titleArg->TYPE == NODE_STRING) {
-                            ss << "\t" << varid << ".title = \"" << *(titleArg->value) << "\";\n"; 
+                            ss << "\t" << varid << ".setTitle(\"" << *(titleArg->value) << "\");\n"; 
                         } else if (titleArg->TYPE == NODE_VARIABLE) {
-                            ss << "\t" << varid << ".title = " << *(titleArg->value) << ";\n"; 
+                            ss << "\t" << varid << ".setTitle(" << *(titleArg->value) << ");\n"; 
                         } else {
-                            ss << "\t" << varid << ".title =\"(" << exprForNode(titleArg) << ")\";\n";
+                            ss << "\t" << varid << ".setTitle(\"(" << exprForNode(titleArg) << ")\");\n";
                         }
                     } else {
-                        ss << "\t" << varid << ".title = \"Create Pyra App\";\n";
+                        ss << "\t" << varid << ".setTitle(\"Create Pyra App\");\n";
                     }
 
                     if (clsparam) {
@@ -406,10 +617,10 @@ class WebEngine {
                     for (auto &child : p->SUB_STATEMENTS) {
                         ss << HandleAst(child, varid);
                     }
-                    idcount++;
+                    pagecount++;
 
                     if (firstpage) {
-                        ss << "\n\n\trenderOrPatchPage(" << varid << ");";
+                        ss << "\n\n\t" << varid << ".render();\n";
                     }
                     return ss.str();
                 } case NODE_VIEW: {
@@ -418,6 +629,15 @@ class WebEngine {
                     return MakeElement(p, parent, "p", "text");
                 } case NODE_IMAGE: {
                     return MakeElement(p, parent, "img", "img");
+                } case NODE_SETSTATE: {
+                    string varname = *(p->value);
+                    string ctype = pyxtocpp_type(p->CHILD->TYPE);
+                    // auto counter = make_shared<appstate::State<auto>>("counter", 0);
+                    stringstream ss;
+                    string endvar = ">>(\""+ varname +"\"," + *(p->CHILD->value) + ");";
+                    ss << "\n\tauto " << varname << " = make_shared<appstate::State<" << ctype << endvar;
+                    statevars.push_back(varname);
+                    return ss.str();
                 }
                  default:
                     return "";

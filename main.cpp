@@ -58,41 +58,56 @@ void generateFiles(const vector<string>& targets, const string& pname) {
 
     fs::create_directory(root + "/public");
     ofstream(root + "/index.pyx") << R"(
-navh = "80px"
-
-div_id = 'nav'
-
-
-app() {
-    page("my tetst page",id="kkk", cls="oppppp", style={
-        "height":"100vh",
-        "background-color":"pink"
-    }) {
-        view() {
-        text("mydiv",  cls="pllllll", style={
-        "height": navh,
-        "background-color":"green"
-    })
-        img("img.png", style={
-            "height":"200px",
-            "width": "200px"
-        })
-        }
+@state num : 0
+    page("My APP") {
+        view("mydiv", style={
+            "height": "50px",
+            "background-color": "green"
+        }, onclick=(num) {
+            num = num + 1
+            print(num)
+        }) {
+            text('Click me and check console!')
+        } 
     }
-})";
+)";
     for (auto& target : targets) {
         if (target == "web") {
             fs::create_directory(root + "/web");
             ofstream(root + "/web/index.html") << R"(<!DOCTYPE html>
-<html lang="en">
+<html>
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta charset="utf-8">
     <title></title>
 </head>
 <body>
+    <script>
+        var Module = {
+            onRuntimeInitialized: function() {
+                console.log('[doodle] WASM Module initialized [doodle]');
+            },
+            print: function(text) {
+                console.log('[Doodle]:', text);
+            }
+        };
+
+        document.addEventListener('click', function(event) {
+            const target = event.target;
+            const callbackId = target.getAttribute('data-callback');
+            
+            if (callbackId && Module && Module._invokeVNodeCallback) {
+                const length = Module.lengthBytesUTF8(callbackId) + 1;
+                const buffer = Module._malloc(length);
+                Module.stringToUTF8(callbackId, buffer, length);
+                
+                Module._invokeVNodeCallback(buffer);
+                Module._free(buffer);
+            }
+        });
+    </script>
+    
+    <script src="main.js"></script>
 </body>
-<script src="main.js"></script>
 </html>)";
             ofstream(root + "/web/vdom.hpp") << R"(#pragma once
 #include <emscripten.h>
@@ -101,205 +116,285 @@ app() {
 #include <unordered_map>
 #include <sstream>
 #include <functional>
-#include <map>
 #include <algorithm>
 
-// -------------------- Callback System --------------------
-inline std::map<int,std::function<void()>> g_callbacks;
-inline int g_callback_counter = 1;
+// -------------------- Forward declarations --------------------
+struct VPage;
+void renderPage(VPage& page);
 
-// Maps DOM id -> callback index
-inline std::map<std::string,int> g_domid_to_callback;
-
-extern "C" {
-    void invokeCallback(int id) {
-        if(g_callbacks.count(id)) g_callbacks[id]();
+// -------------------- Global Page State --------------------
+namespace GlobalState {
+    static VPage* currentPage = nullptr;
+    
+    static void setCurrentPage(VPage* page) {
+        currentPage = page;
     }
-    int getCallbackCount() { return g_callback_counter-1; }
+    
+    static VPage* getCurrentPage() {
+        return currentPage;
+    }
+   
 }
+
+// -------------------- Proper State Management --------------------
+namespace appstate {
+    template<typename T>
+    class State {
+    private:
+        std::string key;
+        
+    public:
+        State(const std::string& k, T initial) : key(k) {
+            // Force initialization in JS storage
+            initialize(initial);
+        }
+        
+        void initialize(T initial_value) {
+            if constexpr (std::is_same_v<T, int>) {
+                EM_ASM({
+                    window.wasmState = window.wasmState || {};
+                    // Only initialize if not already set
+                    if (window.wasmState[UTF8ToString($0)] === undefined) {
+                        window.wasmState[UTF8ToString($0)] = $1;
+                    }
+                }, key.c_str(), initial_value);
+            } else if constexpr (std::is_same_v<T, std::string>) {
+                EM_ASM({
+                    window.wasmState = window.wasmState || {};
+                    if (window.wasmState[UTF8ToString($0)] === undefined) {
+                        window.wasmState[UTF8ToString($0)] = UTF8ToString($1);
+                    }
+                }, key.c_str(), initial_value.c_str());
+            }
+        }
+        
+        void set(T new_value) {
+            if constexpr (std::is_same_v<T, int>) {
+                EM_ASM({
+                    window.wasmState = window.wasmState || {};
+                    window.wasmState[UTF8ToString($0)] = $1;
+                }, key.c_str(), new_value);
+            } else if constexpr (std::is_same_v<T, std::string>) {
+                EM_ASM({
+                    window.wasmState = window.wasmState || {};
+                    window.wasmState[UTF8ToString($0)] = UTF8ToString($1);
+                }, key.c_str(), new_value.c_str());
+            }
+        }
+        
+        T get() const {
+            if constexpr (std::is_same_v<T, int>) {
+                return EM_ASM_INT({
+                    window.wasmState = window.wasmState || {};
+                    var val = window.wasmState[UTF8ToString($0)];
+                    // Return default if not initialized
+                    return (val === undefined) ? 0 : val;
+                }, key.c_str());
+            } else if constexpr (std::is_same_v<T, std::string>) {
+                char* result = (char*)EM_ASM_INT({
+                    window.wasmState = window.wasmState || {};
+                    var val = window.wasmState[UTF8ToString($0)];
+                    if (val === undefined) {
+                        val = ""; // Default value
+                    }
+                    var length = lengthBytesUTF8(val) + 1;
+                    var buffer = _malloc(length);
+                    stringToUTF8(val, buffer, length);
+                    return buffer;
+                }, key.c_str());
+                
+                if (result) {
+                    std::string str(result);
+                    free(result);
+                    return str;
+                }
+                return "";
+            }
+            return T();
+        }
+    };
+}
+
+// -------------------- Callback Registry --------------------
+class CallbackRegistry {
+private:
+    static std::unordered_map<std::string, std::function<void()>> callbacks;
+    static int nextId;
+    
+public:
+    static std::string registerCallback(std::function<void()> callback) {
+        std::string id = "callback_" + std::to_string(nextId++);
+        callbacks[id] = callback;
+        return id;
+    }
+    
+    static void invokeCallback(const std::string& id) {
+        auto it = callbacks.find(id);
+        if (it != callbacks.end()) {
+            it->second();
+        }
+    }
+};
+
+std::unordered_map<std::string, std::function<void()>> CallbackRegistry::callbacks;
+int CallbackRegistry::nextId = 0;
 
 // -------------------- VNode --------------------
 struct VNode {
     std::string tag;
     std::string text;
     std::vector<VNode> children;
-    std::unordered_map<std::string,std::string> attrs;
+    std::unordered_map<std::string, std::string> attrs;
     std::function<void()> onclick;
-    std::string dom_id;
+    std::string callback_id;
 
-    VNode() = default;                // <- Default constructor added
+    VNode() = default;
     VNode(std::string t, std::string txt="") : tag(t), text(txt) {}
+    
+    // Helper methods for building VNodes
+    VNode& setText(const std::string& newText) {
+        text = newText;
+        return *this;
+    }
+    
+    VNode& setAttr(const std::string& key, const std::string& value) {
+        attrs[key] = value;
+        return *this;
+    }
+    
+    VNode& addChild(const VNode& child) {
+        children.push_back(child);
+        return *this;
+    }
+    
+    VNode& onClick(std::function<void()> handler) {
+        onclick = handler;
+        return *this;
+    }
 };
 
 // -------------------- VPage --------------------
 struct VPage {
     std::string title;
-    std::unordered_map<std::string,std::string> bodyAttrs;
     std::vector<VNode> children;
+    std::unordered_map<std::string, std::string> bodyAttrs;
+    
+    // Helper methods
+    VPage& setTitle(const std::string& newTitle) {
+        title = newTitle;
+        return *this;
+    }
+    
+    VPage& addChild(const VNode& child) {
+        children.push_back(child);
+        return *this;
+    }
+    
+    VPage& clearChildren() {
+        children.clear();
+        return *this;
+    }
+    
+    // Render this page
+    void render() {
+        renderPage(*this);
+    }
 };
 
+// -------------------- JavaScript Interop --------------------
+extern "C" {
+    EMSCRIPTEN_KEEPALIVE
+    void invokeVNodeCallback(const char* callbackId) {
+        std::string id(callbackId);
+        CallbackRegistry::invokeCallback(id);
+    }
+
+    EMSCRIPTEN_KEEPALIVE
+    void js_insertHTML(const char* html) {
+        EM_ASM({
+            document.body.innerHTML = UTF8ToString($0);
+        }, html);
+    }
+
+    EMSCRIPTEN_KEEPALIVE
+    void js_setTitle(const char* title) {
+        EM_ASM({
+            document.title = UTF8ToString($0);
+        }, title);
+    }
+
+    EMSCRIPTEN_KEEPALIVE
+    void js_setBodyAttr(const char* key, const char* val) {
+        EM_ASM({
+            document.body.setAttribute(UTF8ToString($0), UTF8ToString($1));
+        }, key, val);
+    }
+    
+    EMSCRIPTEN_KEEPALIVE
+    char* allocateString(const char* str) {
+        size_t len = strlen(str) + 1;
+        char* buffer = (char*)malloc(len);
+        strcpy(buffer, str);
+        return buffer;
+    }
+    
+    EMSCRIPTEN_KEEPALIVE
+    void freeString(char* str) {
+        free(str);
+    }
+}
+
 // -------------------- Render VNode to HTML --------------------
-inline std::string renderToHTML(VNode& node) {
+inline std::string renderToHTML(const VNode& node) {
     std::ostringstream oss;
     oss << "<" << node.tag;
 
-    if(node.attrs.find("id") != node.attrs.end())
-        node.dom_id = node.attrs["id"];
-    else if(node.onclick) {
-        node.dom_id = "vnode" + std::to_string(g_callback_counter);
-        node.attrs["id"] = node.dom_id;
+    if(node.attrs.find("id") != node.attrs.end()) {
+        oss << " id=\"" << node.attrs.at("id") << "\"";
     }
 
-    for(auto& [k,v] : node.attrs)
-        oss << " " << k << "=\"" << v << "\"";
+    for(const auto& [k,v] : node.attrs) {
+        if(k != "id") oss << " " << k << "=\"" << v << "\"";
+    }
 
-    if(node.onclick) {
-        int cb_id = g_callback_counter++;
-        g_callbacks[cb_id] = node.onclick;
-        g_domid_to_callback[node.dom_id] = cb_id;
+    if(!node.callback_id.empty()) {
+        oss << " data-callback=\"" << node.callback_id << "\"";
     }
 
     oss << ">";
     if(!node.text.empty()) oss << node.text;
-    for(auto& child : node.children)
+    for(const auto& child : node.children)
         oss << renderToHTML(child);
     oss << "</" << node.tag << ">";
     return oss.str();
 }
 
-// -------------------- Wire JS onclicks --------------------
-inline void wireOnClicks() {
-    for(auto& [dom_id, cb_id] : g_domid_to_callback) {
-        EM_ASM_({
-            let el = document.getElementById(UTF8ToString($0));
-            if(el) el.onclick = () => Module.ccall('invokeCallback','void',['number'],[$1]);
-        }, dom_id.c_str(), cb_id);
+// -------------------- Bind onclick --------------------
+inline void bindOnClick(VNode& node) {
+    if(node.onclick) {
+        node.callback_id = CallbackRegistry::registerCallback(node.onclick);
     }
+    for(auto& child : node.children)
+        bindOnClick(child);
 }
 
-// -------------------- Patch --------------------
-struct Patch {
-    enum Type { TEXT, ATTR, ADD_CHILD, REMOVE_CHILD } type;
-    std::string dom_id;
-    std::string key;
-    std::string value;
-    VNode newNode;
-
-    Patch(Type t, const std::string& id, const std::string& k = "", const std::string& v = "", const VNode& n = VNode(""))
-        : type(t), dom_id(id), key(k), value(v), newNode(n) {}
-};
-
-// -------------------- Diff Nodes --------------------
-inline void diffNodes(const VNode& prev, const VNode& next, std::vector<Patch>& patches) {
-    if(prev.text != next.text)
-        patches.push_back(Patch(Patch::TEXT, next.dom_id, "", next.text));
-
-    for(auto& [k,v] : next.attrs) {
-        if(prev.attrs.find(k) == prev.attrs.end() || prev.attrs.at(k) != v)
-            patches.push_back(Patch(Patch::ATTR, next.dom_id, k, v));
+// -------------------- Render Page --------------------
+inline void renderPage(VPage& page) {
+    // Set as current page for callbacks to access
+    GlobalState::setCurrentPage(&page);
+    
+    std::ostringstream html;
+    for(auto& node : page.children) {
+        bindOnClick(node);
+        html << renderToHTML(node);
     }
 
-    size_t common = std::min(prev.children.size(), next.children.size());
-    for(size_t i=0;i<common;i++)
-        diffNodes(prev.children[i], next.children[i], patches);
+    js_insertHTML(html.str().c_str());
+    js_setTitle(page.title.c_str());
 
-    for(size_t i=common;i<next.children.size();i++)
-        patches.push_back(Patch(Patch::ADD_CHILD, next.dom_id, "", "", next.children[i]));
-
-    for(size_t i=common;i<prev.children.size();i++)
-        patches.push_back(Patch(Patch::REMOVE_CHILD, prev.children[i].dom_id));
-}
-
-// -------------------- Apply Patches --------------------
-inline void applyPatches(const std::vector<Patch>& patches) {
-    for(auto& p : patches) {
-        switch(p.type) {
-            case Patch::TEXT:
-                EM_ASM_({
-                    let el = document.getElementById(UTF8ToString($0));
-                    if(el) el.textContent = UTF8ToString($1);
-                }, p.dom_id.c_str(), p.value.c_str());
-                break;
-            case Patch::ATTR:
-                EM_ASM_({
-                    let el = document.getElementById(UTF8ToString($0));
-                    if(el) el.setAttribute(UTF8ToString($1), UTF8ToString($2));
-                }, p.dom_id.c_str(), p.key.c_str(), p.value.c_str());
-                break;
-            case Patch::ADD_CHILD: {
-                std::string html = renderToHTML(const_cast<VNode&>(p.newNode));
-                EM_ASM_({
-                    let frag = document.createRange().createContextualFragment(UTF8ToString($0));
-                    let parent = document.getElementById(UTF8ToString($1));
-                    if(parent) parent.appendChild(frag);
-                }, html.c_str(), p.dom_id.c_str());
-
-                if(p.newNode.onclick) {
-                    int cb_id = g_callback_counter++;
-                    g_callbacks[cb_id] = p.newNode.onclick;
-                    g_domid_to_callback[p.newNode.dom_id] = cb_id;
-                    EM_ASM_({
-                        let el = document.getElementById(UTF8ToString($0));
-                        if(el) el.onclick = () => Module.ccall('invokeCallback','void',['number'],[$1]);
-                    }, p.newNode.dom_id.c_str(), g_domid_to_callback[p.newNode.dom_id]);
-                }
-                break;
-            }
-            case Patch::REMOVE_CHILD:
-                EM_ASM_({
-                    let el = document.getElementById(UTF8ToString($0));
-                    if(el) el.remove();
-                }, p.dom_id.c_str());
-                break;
-        }
-    }
-}
-
-// -------------------- Render or Patch Page --------------------
-inline VNode prevPageVNode; // <- now works because of default constructor
-
-inline void renderOrPatchPage(VPage& page) {
-    VNode newRoot("div"); // invisible container for body children
-    newRoot.children = page.children;
-
-    if(prevPageVNode.children.empty()) {
-        // first render
-        std::ostringstream html;
-        for(auto& node : page.children) html << renderToHTML(node);
-
-        std::ostringstream bodyAttrsOSS;
-        for(auto& [k,v] : page.bodyAttrs)
-            bodyAttrsOSS << k << "=" << v << ";";
-        std::string bodyAttrsStr = bodyAttrsOSS.str();
-
-        EM_ASM_({
-            const frag = document.createRange().createContextualFragment(UTF8ToString($0));
-            document.body.appendChild(frag);
-            document.title = UTF8ToString($1);
-            const attrs = UTF8ToString($2).split(";");
-            for(let i=0;i<attrs.length;i++){
-                const kv = attrs[i].split("=");
-                if(kv.length===2) document.body.setAttribute(kv[0],kv[1]);
-            }
-        }, html.str().c_str(), page.title.c_str(), bodyAttrsStr.c_str());
-
-        wireOnClicks();
-        prevPageVNode = newRoot;
-    } else {
-        // patch
-        std::vector<Patch> patches;
-        size_t common = std::min(prevPageVNode.children.size(), newRoot.children.size());
-        for(size_t i=0;i<common;i++)
-            diffNodes(prevPageVNode.children[i], newRoot.children[i], patches);
-
-        for(size_t i=common;i<newRoot.children.size();i++)
-            patches.push_back(Patch(Patch::ADD_CHILD, "body", "", "", newRoot.children[i]));
-
-        for(size_t i=common;i<prevPageVNode.children.size();i++)
-            patches.push_back(Patch(Patch::REMOVE_CHILD, prevPageVNode.children[i].dom_id));
-
-        applyPatches(patches);
-        prevPageVNode = newRoot;
+    // Apply body attributes
+    for(const auto& [key, value] : page.bodyAttrs) {
+        js_setBodyAttr(key.c_str(), value.c_str());
     }
 })";
             ofstream(root + "/web/pyra.web.config") << "# placeholder";
@@ -347,10 +442,15 @@ void builder() {
         exit(1);
     }
     cout << "[Pyra] Compiled Projects Successfully! [Pyra]\n";
-    string cmd = "emcc web/generated.cpp -o web/main.js "
-        "-sEXPORTED_FUNCTIONS=\"['_invokeCallback','_getCallbackCount','_main']\" "
-        "-sEXPORTED_RUNTIME_METHODS=\"['ccall','cwrap']\" "
-        "-sALLOW_MEMORY_GROWTH";
+    // string cmd = "emcc web/generated.cpp -o web/main.js "
+    //     "-sEXPORTED_FUNCTIONS=\"['_invokeCallback','_getCallbackCount','_main']\" "
+    //     "-sEXPORTED_RUNTIME_METHODS=\"['ccall','cwrap']\" "
+    //     "-sALLOW_MEMORY_GROWTH";
+
+    string cmd = "emcc web/generated.cpp -o web/main.js " 
+        "-sEXPORTED_FUNCTIONS=\"['_main','_invokeVNodeCallback','_js_insertHTML','_js_setTitle','_malloc','_free']\" "
+        "-sEXPORTED_RUNTIME_METHODS=\"['ccall','cwrap','stringToUTF8','lengthBytesUTF8']\" "
+        "-sALLOW_MEMORY_GROWTH=1 -sASSERTIONS=1";
     system(cmd.c_str());
 }
 

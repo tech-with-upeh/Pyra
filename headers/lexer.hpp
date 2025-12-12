@@ -37,6 +37,7 @@ enum Tokentype {
     TOKEN_LBRACKET,
     TOKEN_COMMA,
     TOKEN_HASH,
+    TOKEN_ATSYM,
     TOKEN_NEWLINE,
     TOKEN_BACKLASH,
     TOKEN_EOF
@@ -141,7 +142,7 @@ class Lexer
             ctrl = false;
         }
         std::vector<std::string> keywords = {
-            "if", "else", "while", "for", "return", "class", "import", "pass", "break", "continue", "def","type", "true", "false","print", "page", "app", "view", "text", "img", "input"
+            "if", "else", "while", "for", "return", "class", "import", "pass", "break", "continue", "def","type", "true", "false","print", "page", "app", "view", "text", "img", "input", "state"
         };
         
         char advance()
@@ -369,6 +370,9 @@ class Lexer
                         break;}
                 case '#':
                         {tokens.push_back(tokenizespecial(TOKEN_HASH));
+                        break;}
+                case '@':
+                        {tokens.push_back(tokenizespecial(TOKEN_ATSYM)); 
                         break;}
                 case '!':
                         {
