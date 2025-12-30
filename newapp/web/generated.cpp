@@ -11,6 +11,8 @@ void updateUI() {
 	VPage page_1;
 
 	VPage page_2;
+
+	VPage page_3;
 int main() {
 
 	auto num = make_shared<appstate::State<int>>("num",0);
@@ -31,7 +33,7 @@ int main() {
 
 	page_1.render();
 
-	page_2.setTitle("My APP");
+	page_2.setTitle("My about page");
 
 	VNode view_3("div");
 	view_3.setAttr("id", "mydiv");
@@ -44,8 +46,18 @@ int main() {
 
 	view_3.addChild(text_3);
 	page_2.addChild(view_3);
+	page_3.setTitle("sjvjjkjk;");
 
-	page_2.render();
+	VNode view_5("div");
+	view_5.setAttr("id", "mydiv");
+	view_5.onClick([]() {
+			cout << "jsjj" << endl;
+	});
+	view_5.setAttr("style", "height:50px;background-color:green;");
 
+	VNode text_5("p","Click me and check console!");
+
+	view_5.addChild(text_5);
+	page_3.addChild(view_5);
     return 0;
 }
