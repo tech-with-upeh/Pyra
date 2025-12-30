@@ -965,6 +965,9 @@ public:
                     if (current->TYPE != TOKEN_STRING) {
                         parserError("Route expects a string literal");
                     }
+                    if (current->value.empty()) {
+                        parserError("Route cannot be an empty string");
+                    }
 
                     AST_NODE *routeNode = new AST_NODE();
                     routeNode->TYPE = NODE_STRING;

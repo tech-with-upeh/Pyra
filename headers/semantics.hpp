@@ -21,9 +21,9 @@ struct VarInfo {
 };
 
 struct PageInfo {
-    string route;
+    string title;
     bool index;
-}
+};
 
 class SemanticAnalyzer {
 public:
@@ -147,8 +147,26 @@ private:
                         for (auto it = node->CHILD->SUB_STATEMENTS.begin() +1; it != node->CHILD->SUB_STATEMENTS.end(); ++it)
                         {
                             AST_NODE* it_node = *it;
+                            
                             if(*(it_node->value) == "route") {
-                                cout << *(it_node->value) << endl;
+
+                                
+                                bool isindex = false;
+                                if (*(it_node->CHILD->value) == "/")
+                                {
+                                    isindex = true;
+                                }
+                                else
+                                {
+                                    isindex = false;
+                                }
+                                auto checkroute = pagescope.find(*(it_node->CHILD->value));
+                                if (checkroute == pagescope.end()) {
+                                    pagescope[*(it_node->CHILD->value)] = {*(node->CHILD->SUB_STATEMENTS[0]->value), isindex};
+                                } else {
+                                    parserError("Route '" + *(it_node->CHILD->value) + "' already defined as: '" + checkroute->second.title + "'", node->CHILD->SUB_STATEMENTS[0]);
+                                }
+                                
                             }
                             VarType node2 = checkNode(it_node->CHILD, true);
                             if (node2 != TYPE_DICT && node2 != TYPE_STRING)
@@ -156,6 +174,13 @@ private:
                                 parserError("Segmentation Error: Unknown Type in Args in page() but got: '" + *(it_node->value) + "'", it_node);
                             }
                         }
+                    } else {
+                        auto pagesc = pagescope.find("/");
+                        if (pagesc == pagescope.end()) {
+                            pagescope["/"] = {*(node->CHILD->SUB_STATEMENTS[0]->value), true};
+                        } else {          
+                            parserError("Index page already defined as: '" + pagesc->second.title + "'", node->CHILD->SUB_STATEMENTS[0]);
+                        }      
                     }
                 }
                 if (!node->SUB_STATEMENTS.empty())

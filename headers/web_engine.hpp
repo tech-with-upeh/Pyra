@@ -138,7 +138,8 @@ class WebEngine {
         string MakePage(AST_NODE *p, string var) {
                     string varid = var;
                     stringstream ss;
-                    filebuffer << "\n\tVPage "+varid+";\n";
+                    //filebuffer << "\nauto "+varid+ " = make_shared<VPage>();\n";
+                    filebuffer << "\nVPage "+varid+ ";\n";
                     AST_NODE *args = p->CHILD;
                     AST_NODE *styleParam = nullptr;
                     AST_NODE *idparam = nullptr;
@@ -150,19 +151,18 @@ class WebEngine {
                         for (size_t i = 1; i < args->SUB_STATEMENTS.size(); ++i) {
                             AST_NODE *param = args->SUB_STATEMENTS[i];
                             if (param && param->TYPE == NODE_VARIABLE && param->value && *(param->value) == "style") {
-                                cout << "stylessss "  << endl;
+                                
                                 styleParam = param; // styleParam->CHILD -> NODE_DICT
                             }
                             if (param && param->TYPE == NODE_VARIABLE && param->value && *(param->value) == "route") {
-                                cout << "stylessss "  << endl;
+            
                                 routeParam = param; // styleParam->CHILD -> NODE_DICT
                             }
                             if (param && param->TYPE == NODE_VARIABLE && param->value && *(param->value) == "cls") {
-                                cout << "stylessss "  << endl;
+                           
                                 clsparam = param; // styleParam->CHILD -> NODE_DICT
                             }
                             if (param && param->TYPE == NODE_VARIABLE && param->value && *(param->value) == "id") {
-                                cout << "stylessss "  << endl;
                                 idparam = param; // styleParam->CHILD -> NODE_DICT
                             }
                         }

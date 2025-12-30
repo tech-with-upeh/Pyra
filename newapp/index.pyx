@@ -23,7 +23,7 @@ page("My about page", route="/about") {
         } 
     }
 
-page("sjvjjkjk;", route="") {
+page("sjvjjkjk;", route="/sh") {
         view("mydiv", style={
             "height": "50px",
             "background-color": "green"
