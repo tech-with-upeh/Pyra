@@ -1,0 +1,35 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="utf-8">
+    <title></title>
+</head>
+<body>
+    <script>
+        var Module = {
+            onRuntimeInitialized: function() {
+                console.log('[doodle] WASM Module initialized [doodle]');
+            },
+            print: function(text) {
+                console.log('[Doodle]:', text);
+            }
+        };
+
+        document.addEventListener('click', function(event) {
+            const target = event.target;
+            const callbackId = target.getAttribute('data-callback');
+            
+            if (callbackId && Module && Module._invokeVNodeCallback) {
+                const length = Module.lengthBytesUTF8(callbackId) + 1;
+                const buffer = Module._malloc(length);
+                Module.stringToUTF8(callbackId, buffer, length);
+                
+                Module._invokeVNodeCallback(buffer);
+                Module._free(buffer);
+            }
+        });
+    </script>
+    
+    <script src="main.js"></script>
+</body>
+</html>

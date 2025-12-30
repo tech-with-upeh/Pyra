@@ -265,7 +265,7 @@ class WebEngine {
                     if (firstparam->TYPE == NODE_STRING) {
                             ss << "\t" << varid << ".setAttr(\"src\", \"" << *(firstparam->value) << "\");\n"; 
                         } else if (firstparam->TYPE == NODE_VARIABLE) {
-                            ss << "\t" << varid << ".setAttr(\"src\"," << *(firstparam->value) << ");\n"; 
+                            ss << "\t" << varid << ".setAttr(\"src\"," << HandleAst(firstparam->CHILD, parent)  << ");\n"; 
                         } else {
                             ss << "\t" << varid << ".setAttr(\"src\", \"" << exprForNode(firstparam) << "\");\n";
                     }
@@ -275,7 +275,7 @@ class WebEngine {
                     if (firstparam->TYPE == NODE_STRING) {
                             ss << "\n\tVNode "+varid+"(\""+ el + "\",\"" + *(firstparam->value) +"\");\n";
                         } else if (firstparam->TYPE == NODE_VARIABLE) {
-                            ss << "\n\tVNode "+varid+"(\""+ el + "\"," + *(firstparam->value) +");\n"; 
+                            ss << "\n\tVNode "+varid+"(\""+ el + "\"," + HandleAst(firstparam, parent) +");\n"; 
                         } else {
                             cout << "gor error P text is not a string or variable";
                             exit(1);
@@ -324,7 +324,8 @@ class WebEngine {
                 AST_NODE *chld = onclkParam->CHILD->CHILD;
 
                 ss << "\t" << varid << ".onClick([";
-                for (auto &i : chld->SUB_STATEMENTS)
+                if (chld) {
+                    for (auto &i : chld->SUB_STATEMENTS)
                 {
                     ss << *(i->value);
                     if (&i != &chld->SUB_STATEMENTS.back())
@@ -332,6 +333,8 @@ class WebEngine {
                         ss << ", ";
                     }
                 }
+                }
+                
                 
                 ss << "]() {\n";
                 for (auto &i : onclkParam->CHILD->SUB_STATEMENTS)
@@ -633,8 +636,14 @@ class WebEngine {
                     string varname = *(p->value);
                     string ctype = pyxtocpp_type(p->CHILD->TYPE);
                     // auto counter = make_shared<appstate::State<auto>>("counter", 0);
+                    string makeendvar;
+                    if (ctype == "string") {
+                        makeendvar = "\""+  *(p->CHILD->value) +"\"";
+                    } else {
+                        makeendvar =  *(p->CHILD->value);
+                    }
                     stringstream ss;
-                    string endvar = ">>(\""+ varname +"\"," + *(p->CHILD->value) + ");";
+                    string endvar = ">>(\""+ varname +"\"," + makeendvar + ");";
                     ss << "\n\tauto " << varname << " = make_shared<appstate::State<" << ctype << endvar;
                     statevars.push_back(varname);
                     return ss.str();

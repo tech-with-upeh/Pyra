@@ -20,6 +20,11 @@ struct VarInfo {
     bool initialized;
 };
 
+struct PageInfo {
+    string route;
+    bool index;
+}
+
 class SemanticAnalyzer {
 public:
     void analyze(AST_NODE *root) {
@@ -44,6 +49,7 @@ private:
     std::unordered_map<std::string, VarInfo> scope;
     std::unordered_map<std::string, VarInfo> declaredFunctions;
     std::vector<std::string> calledFunctions;
+    std::unordered_map<std::string, PageInfo> pagescope;
 
     void parserError(const std::string &message, AST_NODE* current) {
         std::cerr << "\nSemantics Error: " << message
@@ -116,7 +122,6 @@ private:
                 if (node->CHILD) {
                     VarType rhsType = checkNode(node->CHILD);
                     scope[name] = {rhsType, true};
-                    cout << "created type is---> " << rhsType << endl;
                     return rhsType;
                 } else {
                     // variable usage
@@ -128,17 +133,6 @@ private:
                    
                     return scope[name].type;
                 }
-            }
-            case NODE_app: {
-                if (!node->SUB_STATEMENTS.empty())
-                {
-                    for (auto &i : node->SUB_STATEMENTS)
-                    {
-                        cout << "App------" << nodetostr(i->TYPE) << endl;
-                        checkNode(i);
-                    }
-                }
-                return TYPE_FUNCTION;
             }
             case NODE_page: {
                 if (node->CHILD) {
@@ -153,6 +147,9 @@ private:
                         for (auto it = node->CHILD->SUB_STATEMENTS.begin() +1; it != node->CHILD->SUB_STATEMENTS.end(); ++it)
                         {
                             AST_NODE* it_node = *it;
+                            if(*(it_node->value) == "route") {
+                                cout << *(it_node->value) << endl;
+                            }
                             VarType node2 = checkNode(it_node->CHILD, true);
                             if (node2 != TYPE_DICT && node2 != TYPE_STRING)
                             {
@@ -165,14 +162,10 @@ private:
                 {
                     for (auto &i : node->SUB_STATEMENTS)
                     {
-                        cout << "Checking-->" << nodetostr(i->TYPE) << endl;
                         checkNode(i);
                     }
                 }
-                else
-                {
-                    cout << "was empty" <<endl;
-                }
+                
                 
                 return TYPE_FUNCTION;
             }
@@ -203,14 +196,10 @@ private:
                 }
                 if (!node->SUB_STATEMENTS.empty())
                 {
-                    cout  << "outsidefot---> " << endl;
                     for (auto &i : node->SUB_STATEMENTS)
                     {
-                        cout  << "here---> " << nodetostr(i->TYPE) << endl;
                         checkNode(i);
                     }
-                } else {
-                    cout << "was-- empty" << endl;
                 }
                 return TYPE_FUNCTION;
             }
@@ -324,7 +313,6 @@ private:
                         parserError("Condition in 'else If' must evaluate to a boolean.", node->CHILD);
                 }
                 for (auto *stmt : node->SUB_STATEMENTS) {
-                    cout << "node:---->>> " << nodetostr(stmt->TYPE) << endl;
                     checkNode(stmt);
                 }
                 return TYPE_UNKNOWN;
@@ -337,7 +325,6 @@ private:
                 return TYPE_UNKNOWN;
 
             default:
-                cout << "got --> " << nodetostr(node->TYPE) << endl;
                 return TYPE_UNKNOWN;
         }
     }

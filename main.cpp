@@ -84,10 +84,10 @@ void generateFiles(const vector<string>& targets, const string& pname) {
     <script>
         var Module = {
             onRuntimeInitialized: function() {
-                console.log('[doodle] WASM Module initialized [doodle]');
+                console.log('[FRANKENSTEIN] WASM Module initialized [FRANKENSTEIN]');
             },
             print: function(text) {
-                console.log('[Doodle]:', text);
+                console.log('[FRANKENSTEIN]:', text);
             }
         };
 
@@ -215,6 +215,9 @@ namespace appstate {
     };
 }
 
+
+
+
 // -------------------- Callback Registry --------------------
 class CallbackRegistry {
 private:
@@ -278,6 +281,8 @@ struct VPage {
     std::string title;
     std::vector<VNode> children;
     std::unordered_map<std::string, std::string> bodyAttrs;
+
+    std::function<void(VPage&)> builder;
     
     // Helper methods
     VPage& setTitle(const std::string& newTitle) {
@@ -294,10 +299,79 @@ struct VPage {
         children.clear();
         return *this;
     }
+
+    void rebuild() {
+        if (!builder) return;
+        clearChildren();
+        builder(*this);
+    }
     
     // Render this page
     void render() {
+        rebuild();
         renderPage(*this);
+    }
+};
+
+// --------------------Router ------------------------------
+class Router {
+public:
+    using Handler = std::shared_ptr<VPage>; // store shared_ptr to avoid copies
+
+    // Add a route
+    static void add(const std::string& path, Handler handler) {
+        routes()[path] = handler;
+    }
+
+    // Navigate to a path
+    static void navigate(const std::string& path) {
+        auto it = routes().find(path);
+        if (it != routes().end() && it->second) {
+            currentPath() = path;
+            it->second->render();  // render the page
+        } else {
+            get404()->render();
+        }
+    }
+
+    // Get the current path
+    static std::string getCurrentPath() {
+        return currentPath();
+    }
+
+private:
+    // Route map
+    static std::unordered_map<std::string, Handler>& routes() {
+        static std::unordered_map<std::string, Handler> r;
+        return r;
+    }
+
+    // Current path
+    static std::string& currentPath() {
+        static std::string p;
+        return p;
+    }
+
+    // 404 page
+    static Handler get404() {
+        static Handler notfound;
+        std::string notfound_path = "notfound";
+        auto it = routes().find(notfound_path);
+        if (it != routes().end() && it->second) {
+            notfound = [it]() {
+                
+                return it->second;
+            }();
+        } else {
+            notfound = []() {
+                auto page = std::make_shared<VPage>();
+                page->setTitle("Page Not Found");
+                page->addChild(VNode("p", "Page not found"));
+                return page;
+            }();
+        }
+        
+        return notfound;
     }
 };
 
@@ -314,6 +388,12 @@ extern "C" {
         EM_ASM({
             document.body.innerHTML = UTF8ToString($0);
         }, html);
+    }
+
+    EMSCRIPTEN_KEEPALIVE
+    void handleRoute(const char* route) {
+        std::cout << route << std::endl;
+        Router::navigate(route);
     }
 
     EMSCRIPTEN_KEEPALIVE
@@ -380,6 +460,7 @@ inline void bindOnClick(VNode& node) {
 
 // -------------------- Render Page --------------------
 inline void renderPage(VPage& page) {
+    std::cout << "rerenderedpage-->";
     // Set as current page for callbacks to access
     GlobalState::setCurrentPage(&page);
     
@@ -436,21 +517,18 @@ void builder() {
 
     SemanticAnalyzer analyzer;
     analyzer.analyze(root);
+    cout << "[i] Finished Semantic Analysing [i]" << endl;
     WebEngine gen;
     if (!gen.gen(root)) {
         cerr << "write failed\n";
         exit(1);
     }
     cout << "[Pyra] Compiled Projects Successfully! [Pyra]\n";
-    // string cmd = "emcc web/generated.cpp -o web/main.js "
-    //     "-sEXPORTED_FUNCTIONS=\"['_invokeCallback','_getCallbackCount','_main']\" "
-    //     "-sEXPORTED_RUNTIME_METHODS=\"['ccall','cwrap']\" "
-    //     "-sALLOW_MEMORY_GROWTH";
 
     string cmd = "emcc web/generated.cpp -o web/main.js " 
-        "-sEXPORTED_FUNCTIONS=\"['_main','_invokeVNodeCallback','_js_insertHTML','_js_setTitle','_malloc','_free']\" "
+        "-sEXPORTED_FUNCTIONS=\"['_main','_invokeVNodeCallback','_js_insertHTML','_js_setTitle','_malloc','_free', '_handleRoute']\" "
         "-sEXPORTED_RUNTIME_METHODS=\"['ccall','cwrap','stringToUTF8','lengthBytesUTF8']\" "
-        "-sALLOW_MEMORY_GROWTH=1 -sASSERTIONS=1";
+        "-sALLOW_MEMORY_GROWTH=1 -sASSERTIONS=1 -sDEFAULT_LIBRARY_FUNCS_TO_INCLUDE='$allocateUTF8'";
     system(cmd.c_str());
 }
 
