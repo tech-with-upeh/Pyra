@@ -46,6 +46,7 @@ void printAST(AST_NODE* node, int depth = 0, const std::string& relation = "ROOT
         case NODE_KEYVALUE: std::cout << "KEYVALUE"; break;
         case NODE_SETSTATE: std::cout << "SETSTATE"; break;
         case NODE_GETSTATE: std::cout << "GETSTATE"; break;
+        case NODE_GO: std::cout << "GO"; break;
         default: std::cout << "UNKNOWN"; break;
     }
 

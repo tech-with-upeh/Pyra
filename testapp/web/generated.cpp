@@ -15,7 +15,7 @@ int main() {
 	Router::add("/", page_1);
     auto mytxt = make_shared<appstate::State<string>>("mytxt", "My state text");
 
-    page_1->builder = [mytxt](VPage& page) {
+    page_1->builder = [&](VPage& page) {
         page.setTitle("My APP");
 
         VNode view("div");

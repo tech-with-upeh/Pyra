@@ -8,56 +8,67 @@ void updateUI() {
         GlobalState::getCurrentPage()->render();
     }
 }
-	VPage page_1;
+auto page_1 = make_shared<VPage>();
 
-	VPage page_2;
+auto page_2 = make_shared<VPage>();
 
-	VPage page_3;
-int main() {
+auto page_3 = make_shared<VPage>();
+int main() {Router::add("/",page_1);Router::add("/notfound",page_2);Router::add("/about",page_3);
+	page_1->builder = [&](VPage& page) {
+	page.setTitle("My APP");
+	page.bodyAttrs["style"] = "height:100%;width:100%;padding:0;margin:0;background-color:pink;";
 
-	auto num = make_shared<appstate::State<int>>("num",0);
-	page_1.setTitle("My APP");
-
+	    int pi = 3142;
+	
+	auto num = make_shared<appstate::State<string>>("num","red");
+	
 	VNode view_1("div");
 	view_1.setAttr("id", "mydiv");
 	view_1.onClick([num]() {
-			num->set((num->get() + 1));
 			cout << num->get() << endl;
-	});
-	view_1.setAttr("style", "height:50px;background-color:green;");
+		updateUI();	});
+	view_1.setAttr("style", "height:50px;background-color:green;padding:0;");
 
-	VNode text_1("p","Click me and check console!");
+	VNode text_1("p","Clime and check console!");
 
 	view_1.addChild(text_1);
-	page_1.addChild(view_1);
-
-	page_1.render();
-
-	page_2.setTitle("My about page");
-
+	page.addChild(view_1);
+	
 	VNode view_3("div");
-	view_3.setAttr("id", "mydiv");
-	view_3.onClick([]() {
-			cout << "jsjj" << endl;
-	});
-	view_3.setAttr("style", "height:50px;background-color:green;");
+	view_3.setAttr("id", "myview");
+	view_3.onClick([num]() {
+			if(num->get() == "red"){
+    	num->set("yellow");
+    
+    }
+    else {	num->set("red");
+    }
+			cout << ("printing: ->" + num->get()) << endl;
+		updateUI();	});
+	view_3.setAttr("style", "height:100px;background-color:"+num->get()+";"+"");
 
-	VNode text_3("p","Click me and check console!");
+	page.addChild(view_3);
+};
+	page_2->builder = [&](VPage& page) {
+	page.setTitle("Oh Oh hhhhh");
 
-	view_3.addChild(text_3);
-	page_2.addChild(view_3);
-	page_3.setTitle("sjvjjkjk;");
+	
+	VNode text_4("p","My custidwjbdsbkjj");
 
-	VNode view_5("div");
-	view_5.setAttr("id", "mydiv");
-	view_5.onClick([]() {
-			cout << "jsjj" << endl;
-	});
-	view_5.setAttr("style", "height:50px;background-color:green;");
+	page.addChild(text_4);
+};
+	page_3->builder = [&](VPage& page) {
+	page.setTitle("About Page");
 
-	VNode text_5("p","Click me and check console!");
+	
+	VNode text_5("p","My About");
 
-	view_5.addChild(text_5);
-	page_3.addChild(view_5);
-    return 0;
+	page.addChild(text_5);
+};
+	EM_ASM({
+		Module._handleRoute(allocateUTF8(window.location.pathname));
+		window.addEventListener("popstate", () => {
+		Module._handleRoute(allocateUTF8(window.location.pathname));
+		});
+	});return 0;
 }

@@ -171,7 +171,7 @@ struct VPage {
     std::vector<VNode> children;
     std::unordered_map<std::string, std::string> bodyAttrs;
 
-    std::function<void(VPage&)> builder;
+    std::function<void(VPage&)> builder; 
     
     // Helper methods
     VPage& setTitle(const std::string& newTitle) {
@@ -217,9 +217,25 @@ public:
         auto it = routes().find(path);
         if (it != routes().end() && it->second) {
             currentPath() = path;
-            it->second->render();  // render the page
+            it->second->render();
         } else {
             get404()->render();
+        }
+    }
+
+    static void go(const std::string& path, bool push = true) {
+        auto it = routes().find(path);
+        if (it != routes().end()) {
+            currentPath() = path;
+            it->second->render(); 
+
+            if (push) {
+                EM_ASM({
+                    history.pushState({}, "", UTF8ToString($0));
+                }, path.c_str());
+            }
+        } else {
+            get404()->rebuild();
         }
     }
 
@@ -244,7 +260,7 @@ private:
     // 404 page
     static Handler get404() {
         static Handler notfound;
-        std::string notfound_path = "notfound";
+        std::string notfound_path = "/notfound";
         auto it = routes().find(notfound_path);
         if (it != routes().end() && it->second) {
             notfound = [it]() {
@@ -281,7 +297,6 @@ extern "C" {
 
     EMSCRIPTEN_KEEPALIVE
     void handleRoute(const char* route) {
-        std::cout << route << std::endl;
         Router::navigate(route);
     }
 
@@ -349,7 +364,6 @@ inline void bindOnClick(VNode& node) {
 
 // -------------------- Render Page --------------------
 inline void renderPage(VPage& page) {
-    std::cout << "rerenderedpage-->";
     // Set as current page for callbacks to access
     GlobalState::setCurrentPage(&page);
     

@@ -16,6 +16,7 @@ class WebEngine {
         // You can populate this map before calling gen() if you want generator-time resolution.
         unordered_map<string,string> env;
         stringstream filebuffer;
+        stringstream mainbuffer;
 
         WebEngine() : idcount(1) , pagecount(1) {}
 
@@ -51,19 +52,19 @@ class WebEngine {
     }
 })";
 
-            stringstream mainbuffer;
+            stringstream codebuffer;
 
-            mainbuffer << "int main() {\n";
+            codebuffer << "\n";
 
             // Top-level: convert each root sub-statement into C++ statements
             for (auto &stmt : root->SUB_STATEMENTS) {
                 string out = HandleAst(stmt);
                 if (!out.empty()) {
-                    mainbuffer << out << "\n";
+                    codebuffer << out << "\n";
                 }
             }
-            filebuffer << mainbuffer.str();
-            filebuffer << "    return 0;\n}\n";
+            filebuffer << "int main() {" << mainbuffer.str() << codebuffer.str();
+            filebuffer << "\tEM_ASM({\n\t\tModule._handleRoute(allocateUTF8(window.location.pathname));\n\t\twindow.addEventListener(\"popstate\", () => {\n\t\tModule._handleRoute(allocateUTF8(window.location.pathname));\n\t\t});\n\t});return 0;\n}\n";
 
            
 
@@ -109,6 +110,7 @@ class WebEngine {
                 case NODE_VARIABLE:
                     // use variable name directly — assumes the generated C++ defines this name earlier
                     return HandleAst(p);
+                case NODE_BOOL:
                 case NODE_BINARY_OP: {
                     string lhs = exprForNode(p->SUB_STATEMENTS[0]);
                     string rhs = exprForNode(p->SUB_STATEMENTS[1]);
@@ -135,11 +137,13 @@ class WebEngine {
             }
         }
 
-        string MakePage(AST_NODE *p, string var) {
+        string MakePage(AST_NODE *p, string var, bool firstpage=false) {
                     string varid = var;
                     stringstream ss;
-                    //filebuffer << "\nauto "+varid+ " = make_shared<VPage>();\n";
-                    filebuffer << "\nVPage "+varid+ ";\n";
+                    filebuffer << "\nauto "+varid+ " = make_shared<VPage>();\n";
+
+                    filebuffer.str();
+                    ss << "\t"+varid+"->builder = [&](VPage& page) {\n";
                     AST_NODE *args = p->CHILD;
                     AST_NODE *styleParam = nullptr;
                     AST_NODE *idparam = nullptr;
@@ -168,33 +172,41 @@ class WebEngine {
                         }
                     }
 
+                    if (routeParam) {
+                        // Router::add("/", page_1);
+                        mainbuffer << "Router::add(\""+*(routeParam->CHILD->value) + "\","+ varid +");";
+                    } else {
+                        if(firstpage) {
+                            mainbuffer << "Router::add(\"/\","+ varid +");";
+                        }
+                    }
                     if (titleArg) {
                         
                         if (titleArg->TYPE == NODE_STRING) {
-                            ss << "\t" << varid << ".setTitle(\"" << *(titleArg->value) << "\");\n"; 
+                            ss << "\tpage.setTitle(\"" << *(titleArg->value) << "\");\n"; 
                         } else if (titleArg->TYPE == NODE_VARIABLE) {
-                            ss << "\t" << varid << ".setTitle(" << *(titleArg->value) << ");\n"; 
+                            ss << "\tpage.setTitle(" << *(titleArg->value) << ");\n"; 
                         } else {
-                            ss << "\t" << varid << ".setTitle(\"(" << exprForNode(titleArg) << ")\");\n";
+                            ss << "\tpage.setTitle(\"(" << exprForNode(titleArg) << ")\");\n";
                         }
                     } else {
-                        ss << "\t" << varid << ".setTitle(\"Create Pyra App\");\n";
+                        ss << "\tpage.setTitle(\"Create Pyra App\");\n";
                     }
 
                     if (clsparam) {
                         //page.bodyAttrs["class"] = "main-body";
                         if (clsparam->CHILD->TYPE == NODE_STRING) {
-                            ss << "\t" << varid << ".bodyAttrs[\"class\"] = \"" << *(clsparam->CHILD->value) << "\";\n";
+                            ss << "\tpage.bodyAttrs[\"class\"] = \"" << *(clsparam->CHILD->value) << "\";\n";
                         } else if (clsparam->CHILD->TYPE == NODE_VARIABLE) {
-                            ss << "\t" << varid << ".bodyAttrs[\"class\"] = " << *(clsparam->CHILD->value) << ";\n";
+                            ss << "\tpage.bodyAttrs[\"class\"] = " << *(clsparam->CHILD->value) << ";\n";
                         } else {
-                            ss << "\t" << varid << ".bodyAttrs[\"class\"] =\"(" << exprForNode(clsparam->CHILD) << ")\";\n";
+                            ss << "\tpage.bodyAttrs[\"class\"] =\"(" << exprForNode(clsparam->CHILD) << ")\";\n";
                         }
                     }
 
                     if (styleParam && styleParam->CHILD && styleParam->CHILD->TYPE == NODE_DICT) {
                         AST_NODE *dict = styleParam->CHILD;
-                        ss << "\t" << varid << ".bodyAttrs[\"style\"] = \"";
+                        ss << "\tpage.bodyAttrs[\"style\"] = \"";
                         for (auto &kv : dict->SUB_STATEMENTS) {
                             AST_NODE *keyNode = kv->SUB_STATEMENTS[0];
                             AST_NODE *valNode = kv->SUB_STATEMENTS[1];
@@ -204,17 +216,24 @@ class WebEngine {
                             if (valNode->TYPE == NODE_STRING) {
                                 ss << key << ":" << *(valNode->value) << ";";
                             }
-                            if (valNode->TYPE == NODE_VARIABLE) {
-                                ss << key << ":" << "\"+" << *(valNode->value) << "+\"";
+                             if (valNode->TYPE == NODE_VARIABLE) {
+                                if (find(statevars.begin(), statevars.end(), *(valNode->value)) != statevars.end())
+                                    {
+                                        ss << key << ":" << "\"+" <<  *(valNode->value) << "->get()" << "+\";\"+\"";
+                                    } else {
+                                        ss << key << ":" << "\"+" << *(valNode->value) << "+\";\"+\"";
+                                    }
                             }
                         }
                         ss << "\";\n";
                     }
 
                     for (auto &child : p->SUB_STATEMENTS) {
-                        ss << HandleAst(child, varid);
+                        ss << "\n\t" << HandleAst(child, "page");
                     }
-                    idcount++;
+                    ss << "\n};";
+                    
+                    pagecount++;
                     return ss.str();
                 }
 
@@ -339,9 +358,9 @@ class WebEngine {
                 ss << "]() {\n";
                 for (auto &i : onclkParam->CHILD->SUB_STATEMENTS)
                 {
-                    ss << "\t\t" << HandleAst(i, "root", true) << "\n";   
+                    ss << "\t\t" << HandleAst(i, parent, true) << "\n";   
                 }
-                ss << "\t});\n";
+                ss << "\t\tupdateUI();\t});\n";
             }
             
 
@@ -358,7 +377,12 @@ class WebEngine {
                         ss << key << ":" << *(valNode->value) << ";";
                     }
                     if (valNode->TYPE == NODE_VARIABLE) {
-                        ss << key << ":" << "\"+" << *(valNode->value) << "+\";\"+\"";
+                        if (find(statevars.begin(), statevars.end(), *(valNode->value)) != statevars.end())
+                            {
+                                ss << key << ":" << "\"+" <<  *(valNode->value) << "->get()" << "+\";\"+\"";
+                            } else {
+                                ss << key << ":" << "\"+" << *(valNode->value) << "+\";\"+\"";
+                            }
                     }
                 }
                 ss << "\");\n";
@@ -472,7 +496,9 @@ class WebEngine {
                                  
                     }
                 }
-
+                case NODE_STRING: {
+                    return exprForNode(p);
+                }
                 case NODE_PRINT: {
                     if (p->CHILD->TYPE == NODE_VARIABLE)
                     {
@@ -489,14 +515,21 @@ class WebEngine {
                     
                     
                 }
+                case NODE_GO: {
+                    stringstream ss;
+                    ss << "Router::go(\"";
+                    for (auto i : p->SUB_STATEMENTS) {
+                        ss << *(i->value);
+                    }
+                    ss << "\");";
+                    return ss.str();
+                }
                 case NODE_IF: {
                     bool haselsif = false;
                     stringstream ss;
-                    ss << "    if (";
-                    ss << *(p->CHILD->SUB_STATEMENTS[0]->value);
-                    ss << *(p->CHILD->value);
-                    ss << *(p->CHILD->SUB_STATEMENTS[1]->value);
-                    ss << "    ){";
+                    ss << "\tif";
+                    ss << exprForNode(p->CHILD);
+                    ss << "{";
                     for (auto i : p->SUB_STATEMENTS)
                     {
                         ss << "\n    ";
@@ -525,107 +558,21 @@ class WebEngine {
                 }
                 case NODE_ELSE_IF: {
                     stringstream ss;
-                    ss << "\n     else if (";
-                    ss << *(p->CHILD->SUB_STATEMENTS[0]->value);
-                    ss << *(p->CHILD->value);
-                    ss << *(p->CHILD->SUB_STATEMENTS[1]->value);
-                    ss << ") {";
+                    ss << "\n\telse if";
+                    ss << exprForNode(p->CHILD);
+                    ss << "{";
                     for (auto i : p->SUB_STATEMENTS)
                     {
-                        ss << "\n    " << HandleAst(i);
+                        ss << "\n\t" << HandleAst(i);
                     }
                     
                     return ss.str();
                 } case NODE_page: {
-                    bool firstpage;
+                    bool firstpage = false;
                     if (pagecount == 1) {
                         firstpage = true;
                     }
-                    
-                    string varid = "page_" + to_string(pagecount);
-                    stringstream ss;
-                    filebuffer << "\n\tVPage "+varid+";\n";
-                    AST_NODE *args = p->CHILD;
-                    AST_NODE *styleParam = nullptr;
-                    AST_NODE *idparam = nullptr;
-                    AST_NODE *clsparam = nullptr;
-                    AST_NODE *routeParam = nullptr;
-                    AST_NODE *titleArg = nullptr;
-                    if (args && !args->SUB_STATEMENTS.empty()) {
-                        titleArg = args->SUB_STATEMENTS[0];
-                        for (size_t i = 1; i < args->SUB_STATEMENTS.size(); ++i) {
-                            AST_NODE *param = args->SUB_STATEMENTS[i];
-                            if (param && param->TYPE == NODE_VARIABLE && param->value && *(param->value) == "style") {
-                                cout << "stylessss "  << endl;
-                                styleParam = param; // styleParam->CHILD -> NODE_DICT
-                            }
-                            if (param && param->TYPE == NODE_VARIABLE && param->value && *(param->value) == "route") {
-                                cout << "stylessss "  << endl;
-                                routeParam = param; // styleParam->CHILD -> NODE_DICT
-                            }
-                            if (param && param->TYPE == NODE_VARIABLE && param->value && *(param->value) == "cls") {
-                                cout << "stylessss "  << endl;
-                                clsparam = param; // styleParam->CHILD -> NODE_DICT
-                            }
-                            if (param && param->TYPE == NODE_VARIABLE && param->value && *(param->value) == "id") {
-                                cout << "stylessss "  << endl;
-                                idparam = param; // styleParam->CHILD -> NODE_DICT
-                            }
-                        }
-                    }
-
-                    if (titleArg) {
-                        
-                        if (titleArg->TYPE == NODE_STRING) {
-                            ss << "\t" << varid << ".setTitle(\"" << *(titleArg->value) << "\");\n"; 
-                        } else if (titleArg->TYPE == NODE_VARIABLE) {
-                            ss << "\t" << varid << ".setTitle(" << *(titleArg->value) << ");\n"; 
-                        } else {
-                            ss << "\t" << varid << ".setTitle(\"(" << exprForNode(titleArg) << ")\");\n";
-                        }
-                    } else {
-                        ss << "\t" << varid << ".setTitle(\"Create Pyra App\");\n";
-                    }
-
-                    if (clsparam) {
-                        //page.bodyAttrs["class"] = "main-body";
-                        if (clsparam->CHILD->TYPE == NODE_STRING) {
-                            ss << "\t" << varid << ".bodyAttrs[\"class\"] = \"" << *(clsparam->CHILD->value) << "\";\n";
-                        } else if (clsparam->CHILD->TYPE == NODE_VARIABLE) {
-                            ss << "\t" << varid << ".bodyAttrs[\"class\"] = " << *(clsparam->CHILD->value) << ";\n";
-                        } else {
-                            ss << "\t" << varid << ".bodyAttrs[\"class\"] =\"(" << exprForNode(clsparam->CHILD) << ")\";\n";
-                        }
-                    }
-
-                    if (styleParam && styleParam->CHILD && styleParam->CHILD->TYPE == NODE_DICT) {
-                        AST_NODE *dict = styleParam->CHILD;
-                        ss << "\t" << varid << ".bodyAttrs[\"style\"] = \"";
-                        for (auto &kv : dict->SUB_STATEMENTS) {
-                            AST_NODE *keyNode = kv->SUB_STATEMENTS[0];
-                            AST_NODE *valNode = kv->SUB_STATEMENTS[1];
-                            string key = (keyNode->TYPE == NODE_STRING) ? *(keyNode->value) : *(keyNode->value);
-
-                            // Build page.bodyAttrs["style"] = "background-color:#f0f0f0; font-family:Arial,sans-serif; margin:20px;";
-                            if (valNode->TYPE == NODE_STRING) {
-                                ss << key << ":" << *(valNode->value) << ";";
-                            }
-                            if (valNode->TYPE == NODE_VARIABLE) {
-                                ss << key << ":" << "\"+" << *(valNode->value) << "+\"";
-                            }
-                        }
-                        ss << "\";\n";
-                    }
-
-                    for (auto &child : p->SUB_STATEMENTS) {
-                        ss << HandleAst(child, varid);
-                    }
-                    pagecount++;
-
-                    if (firstpage) {
-                        ss << "\n\n\t" << varid << ".render();\n";
-                    }
-                    return ss.str();
+                    return MakePage(p, "page_"+to_string(pagecount), firstpage);
                 } case NODE_VIEW: {
                     return MakeElement(p, parent, "div", "view");
                 } case NODE_TEXT: {

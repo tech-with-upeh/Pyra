@@ -44,7 +44,8 @@ enum NODE_TYPE {
 
     //framework logic
     NODE_SETSTATE,
-    NODE_GETSTATE
+    NODE_GETSTATE,
+    NODE_GO
 };
 
 struct AST_NODE {
@@ -92,6 +93,7 @@ string nodetostr(enum NODE_TYPE tYPE) {
         case NODE_ARGS: return "ARGS"; break;
         case NODE_SETSTATE: return "SETSTATE"; break;
         case NODE_GETSTATE: return "GETSTATE"; break;
+        case NODE_GO: return "GO";
         default: return "UNKNOWN"; break;
     }
 }
@@ -114,12 +116,28 @@ public:
         std::cerr << "    ";
         for (int i = 1; i < (current->charno+to_string(current->lineno).length()+1); ++i)
             std::cerr << " ";
-        for (int i = 0; i < current->value.length(); i++)
+        for (int i = 0; i < current->value.length() + 2; i++)
         {
             std::cerr << "^";
         }
         std::cerr << "\n\n";
         std::exit(1);
+    }
+
+     // ---------- Error Handler ----------
+    void parserWarning(const std::string &message) {
+        std::cerr << "\nWarning: " << message
+                  << " at line " << current->lineno
+                  << ", column " << current->charno << "\n";
+        std::cerr << "  " << current->lineno << " | " << current->sourceLine << "\n";
+        std::cerr << "    ";
+        for (int i = 1; i < (current->charno+to_string(current->lineno).length()+1); ++i)
+            std::cerr << " ";
+        for (int i = 0; i < current->value.length() + 2; i++)
+        {
+            std::cerr << "^";
+        }
+        std::cerr << "\n\n";
     }
 
     // ---------- Token Consumption ----------
@@ -649,8 +667,6 @@ public:
                         {
                             proceed(current->TYPE);
                         }
-                        
-                        cout << "----> " << current->value << endl;
                         if (current->value != "else")
                         {
                         endof = true;
@@ -789,11 +805,10 @@ public:
 
 
      // ---------- FUNCTION CALL ----------
-    AST_NODE *parseFunctionCall(string *funcName) {
+    AST_NODE *parseFunctionCall(string *funcName, NODE_TYPE tyPE = NODE_FUNCTION_CALL) {
         AST_NODE *callNode = new AST_NODE();
-        callNode->TYPE = NODE_FUNCTION_CALL;
+        callNode->TYPE = tyPE;
         callNode->value = funcName;
-
         proceed(TOKEN_LPAREN);
         if (current->TYPE != TOKEN_RPAREN) {
             callNode->SUB_STATEMENTS.push_back(parseExpression());
@@ -812,7 +827,7 @@ public:
        AST_NODE *funcNode = new AST_NODE();
        funcNode->TYPE = NODE_FUNCTION_DECL;
         if (!callback) {
-             proceed(TOKEN_KEYWORD); // "function"
+             proceed(TOKEN_KEYWORD); // "def"
             if (current->TYPE != TOKEN_ID) {
                 parserError("Expected function name after 'def'"); 
             }
@@ -969,6 +984,13 @@ public:
                         parserError("Route cannot be an empty string");
                     }
 
+                    string fixroute = current->value;
+                    char fwdr = '/';
+                    if(current->value[0] != fwdr) {
+                        
+                        std::string charToString(1, fwdr);
+                        current->value = charToString+current->value;
+                    }
                     AST_NODE *routeNode = new AST_NODE();
                     routeNode->TYPE = NODE_STRING;
                     routeNode->value = &current->value;
@@ -1026,7 +1048,7 @@ public:
 
             if (current->TYPE == TOKEN_RBRACE)
                 break;
-            funcNode->SUB_STATEMENTS.push_back(parseStatement());
+            funcNode->SUB_STATEMENTS.push_back(parseStatement(true));
 
             while (current->TYPE == TOKEN_NEWLINE)
                 proceed(TOKEN_NEWLINE);
@@ -1197,6 +1219,7 @@ public:
                                 args->lineno = current->lineno;
                                 args->sourceLine = current->sourceLine;
                                 args->extra = current->extra;
+                                args->value = &current->value;
                                 args->charno = current->charno;
                                 funcNode->CHILD = args;
                                 proceed(TOKEN_ID);
@@ -1333,8 +1356,11 @@ public:
                 return parseView(NODE_VIEW);
             } else if (current->value == "text") {
                 return parseView(NODE_TEXT);
-            }
-            else {
+            } else if (current->value == "go") {
+                string *funcIdent = &current->value;
+                proceed(current->TYPE);
+                return parseFunctionCall(funcIdent, NODE_GO);
+            } else {
                 parserError("Unknown keyword: " + current->value);
             }
         }
@@ -1396,18 +1422,20 @@ public:
         } else {
             parserError("Expected identifier or 'state' after '@', got: " + current->value );
         }
-
-        
-        
         return node;
     }
 
     // ---------- Generic Statement ----------
-    AST_NODE *parseStatement() {
+    AST_NODE *parseStatement(bool ispage = false) {
         if (current->TYPE == TOKEN_ID)
             return parseID();
         else if (current->TYPE == TOKEN_ATSYM) {
-            return parseAtSym();
+            if(ispage == true) {
+                
+                return parseAtSym();
+            } else {
+                parserError("State Variables can only be in a page, please write it under a page scope");
+            }
         } else if (current->TYPE == TOKEN_HASH)
             {proceed(current->TYPE);
             while (current->TYPE != TOKEN_NEWLINE)

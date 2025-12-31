@@ -29,8 +29,10 @@ class SemanticAnalyzer {
 public:
     void analyze(AST_NODE *root) {
         scope.clear();
+        statevars.clear();
         declaredFunctions.clear();
         calledFunctions.clear();
+        pagescope.clear();
 
         // Pass 1: Analyze all statements
         for (auto stmt : root->SUB_STATEMENTS) {
@@ -47,6 +49,7 @@ public:
 
 private:
     std::unordered_map<std::string, VarInfo> scope;
+    std::unordered_map<std::string, VarInfo> statevars;
     std::unordered_map<std::string, VarInfo> declaredFunctions;
     std::vector<std::string> calledFunctions;
     std::unordered_map<std::string, PageInfo> pagescope;
@@ -121,17 +124,29 @@ private:
                 std::string name = *node->value;
                 if (node->CHILD) {
                     VarType rhsType = checkNode(node->CHILD);
-                    scope[name] = {rhsType, true};
+                    if(node->TYPE == NODE_VARIABLE) {
+                        scope[name] = {rhsType, true};
+                    }
+                    if(node->TYPE == NODE_SETSTATE) {
+                        statevars[name] = {rhsType, true};
+                    }
                     return rhsType;
                 } else {
                     // variable usage
                     auto it = scope.find(name);
+                    auto st = statevars.find(name);
                     
-                    if(it == scope.end() || !it->second.initialized) {  
-                        parserError("Variable '" + name + "' used before assignment.", node);
+                    if(st == statevars.end()) { 
+                        if(it == scope.end()) {
+                            parserError("Variable '" + name + "' used before assignment.", node);
+                        } 
                     }
-                   
-                    return scope[name].type;
+                   if (it != scope.end()) {
+                        return scope[name].type;
+                   }
+                   if (st != statevars.end()) {
+                        return statevars[name].type;
+                   }
                 }
             }
             case NODE_page: {
@@ -190,8 +205,7 @@ private:
                         checkNode(i);
                     }
                 }
-                
-                
+                statevars.clear();
                 return TYPE_FUNCTION;
             }
 
@@ -261,10 +275,21 @@ private:
                     for (auto param : node->CHILD->SUB_STATEMENTS) {
                         if (funcdecl)
                         {
-                            auto it = scope.find(*param->value);
-                    
-                            if(it == scope.end() || !it->second.initialized) {  
-                                parserError("Variable '" + *param->value + "' used before assignment.", node->CHILD);
+                            std::string name = *param->value;
+
+                            auto it = scope.find(name);
+                            auto st = statevars.find(name);
+                                
+                                if(st == statevars.end()) { 
+                                    if(it == scope.end()) {
+                                        parserError("Variable '" + name + "' used before assignment.", node);
+                                    } 
+                                }
+                            if (it != scope.end()) {
+                                    return scope[name].type;
+                            }
+                            if (st != statevars.end()) {
+                                    return statevars[name].type;
                             }
                         }
                         else
@@ -301,9 +326,13 @@ private:
             // Return and print
             case NODE_RETURN:
             case NODE_PRINT:
+            case NODE_GO:
             case NODE_TYPE_CHECK:
                 if (node->CHILD) checkNode(node->CHILD);
+                
                 return TYPE_UNKNOWN;
+
+            
 
             // If / While / For blocks
             case NODE_IF: {
