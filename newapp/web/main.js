@@ -14,29 +14,22 @@
 
   var TARGET_NOT_SUPPORTED = 2147483647;
 
-  // Note: We use a typeof check here instead of optional chaining using
-  // globalThis because older browsers might not have globalThis defined.
-  var currentNodeVersion = typeof process !== 'undefined' && process.versions?.node ? humanReadableVersionToPacked(process.versions.node) : TARGET_NOT_SUPPORTED;
+  var currentNodeVersion = typeof process !== 'undefined' && process?.versions?.node ? humanReadableVersionToPacked(process.versions.node) : TARGET_NOT_SUPPORTED;
   if (currentNodeVersion < 160000) {
     throw new Error(`This emscripten-generated code requires node v${ packedVersionToHumanReadable(160000) } (detected v${packedVersionToHumanReadable(currentNodeVersion)})`);
   }
 
-  var userAgent = typeof navigator !== 'undefined' && navigator.userAgent;
-  if (!userAgent) {
-    return;
-  }
-
-  var currentSafariVersion = userAgent.includes("Safari/") && !userAgent.includes("Chrome/") && userAgent.match(/Version\/(\d+\.?\d*\.?\d*)/) ? humanReadableVersionToPacked(userAgent.match(/Version\/(\d+\.?\d*\.?\d*)/)[1]) : TARGET_NOT_SUPPORTED;
+  var currentSafariVersion = typeof navigator !== 'undefined' && navigator?.userAgent?.includes("Safari/") && navigator.userAgent.match(/Version\/(\d+\.?\d*\.?\d*)/) ? humanReadableVersionToPacked(navigator.userAgent.match(/Version\/(\d+\.?\d*\.?\d*)/)[1]) : TARGET_NOT_SUPPORTED;
   if (currentSafariVersion < 150000) {
     throw new Error(`This emscripten-generated code requires Safari v${ packedVersionToHumanReadable(150000) } (detected v${currentSafariVersion})`);
   }
 
-  var currentFirefoxVersion = userAgent.match(/Firefox\/(\d+(?:\.\d+)?)/) ? parseFloat(userAgent.match(/Firefox\/(\d+(?:\.\d+)?)/)[1]) : TARGET_NOT_SUPPORTED;
+  var currentFirefoxVersion = typeof navigator !== 'undefined' && navigator?.userAgent?.match(/Firefox\/(\d+(?:\.\d+)?)/) ? parseFloat(navigator.userAgent.match(/Firefox\/(\d+(?:\.\d+)?)/)[1]) : TARGET_NOT_SUPPORTED;
   if (currentFirefoxVersion < 79) {
     throw new Error(`This emscripten-generated code requires Firefox v79 (detected v${currentFirefoxVersion})`);
   }
 
-  var currentChromeVersion = userAgent.match(/Chrome\/(\d+(?:\.\d+)?)/) ? parseFloat(userAgent.match(/Chrome\/(\d+(?:\.\d+)?)/)[1]) : TARGET_NOT_SUPPORTED;
+  var currentChromeVersion = typeof navigator !== 'undefined' && navigator?.userAgent?.match(/Chrome\/(\d+(?:\.\d+)?)/) ? parseFloat(navigator.userAgent.match(/Chrome\/(\d+(?:\.\d+)?)/)[1]) : TARGET_NOT_SUPPORTED;
   if (currentChromeVersion < 85) {
     throw new Error(`This emscripten-generated code requires Chrome v85 (detected v${currentChromeVersion})`);
   }
@@ -598,7 +591,7 @@ function createExportWrapper(name, nargs) {
 var wasmBinaryFile;
 
 function findWasmBinary() {
-  return locateFile('main.wasm');
+    return locateFile('main.wasm');
 }
 
 function getBinarySync(file) {
@@ -1231,7 +1224,7 @@ async function createWasm() {
       if (!getEnvStrings.strings) {
         // Default values.
         // Browser language detection #8751
-        var lang = (globalThis.navigator?.language ?? 'C').replace('-', '_') + '.UTF-8';
+        var lang = ((typeof navigator == 'object' && navigator.language) || 'C').replace('-', '_') + '.UTF-8';
         var env = {
           'USER': 'web_user',
           'LOGNAME': 'web_user',
@@ -2697,13 +2690,12 @@ async function createWasm() {
         };
   
         // sync all mounts
-        for (var mount of mounts) {
-          if (mount.type.syncfs) {
-            mount.type.syncfs(mount, populate, done);
-          } else {
-            done(null);
+        mounts.forEach((mount) => {
+          if (!mount.type.syncfs) {
+            return done(null);
           }
-        }
+          mount.type.syncfs(mount, populate, done);
+        });
       },
   mount(type, opts, mountpoint) {
         if (typeof type == 'string') {
@@ -2770,7 +2762,9 @@ async function createWasm() {
         var mount = node.mounted;
         var mounts = FS.getMounts(mount);
   
-        for (var [hash, current] of Object.entries(FS.nameTable)) {
+        Object.keys(FS.nameTable).forEach((hash) => {
+          var current = FS.nameTable[hash];
+  
           while (current) {
             var next = current.name_next;
   
@@ -2780,7 +2774,7 @@ async function createWasm() {
   
             current = next;
           }
-        }
+        });
   
         // no longer a mountpoint
         node.mounted = null;
@@ -3824,12 +3818,14 @@ async function createWasm() {
         });
         // override each stream op with one that tries to force load the lazy file first
         var stream_ops = {};
-        for (const [key, fn] of Object.entries(node.stream_ops)) {
+        var keys = Object.keys(node.stream_ops);
+        keys.forEach((key) => {
+          var fn = node.stream_ops[key];
           stream_ops[key] = (...args) => {
             FS.forceLoadFile(node);
             return fn(...args);
           };
-        }
+        });
         function writeChunks(stream, buffer, offset, length, position) {
           var contents = stream.node.contents;
           if (position >= contents.length)
@@ -4670,13 +4666,17 @@ function checkIncomingModuleAPI() {
   ignoredModuleProp('fetchSettings');
 }
 var ASM_CONSTS = {
-  85996: ($0) => { document.body.innerHTML = UTF8ToString($0); },  
- 86044: ($0) => { document.title = UTF8ToString($0); },  
- 86083: ($0, $1) => { document.body.setAttribute(UTF8ToString($0), UTF8ToString($1)); },  
- 86151: () => { Module._handleRoute(allocateUTF8(window.location.pathname)); window.addEventListener("popstate", () => { Module._handleRoute(allocateUTF8(window.location.pathname)); }); },  
- 86325: ($0, $1) => { window.wasmState = window.wasmState || {}; if (window.wasmState[UTF8ToString($0)] === undefined) { window.wasmState[UTF8ToString($0)] = UTF8ToString($1); } },  
- 86485: ($0, $1) => { window.wasmState = window.wasmState || {}; window.wasmState[UTF8ToString($0)] = UTF8ToString($1); },  
- 86587: ($0) => { window.wasmState = window.wasmState || {}; var val = window.wasmState[UTF8ToString($0)]; if (val === undefined) { val = ""; } var length = lengthBytesUTF8(val) + 1; var buffer = _malloc(length); stringToUTF8(val, buffer, length); return buffer; }
+  85948: ($0) => { document.body.innerHTML = UTF8ToString($0); },  
+ 85996: ($0) => { document.title = UTF8ToString($0); },  
+ 86035: ($0, $1) => { document.body.setAttribute(UTF8ToString($0), UTF8ToString($1)); },  
+ 86103: () => { Module._handleRoute(allocateUTF8(window.location.pathname)); window.addEventListener("popstate", () => { Module._handleRoute(allocateUTF8(window.location.pathname)); }); },  
+ 86277: ($0, $1) => { window.wasmState = window.wasmState || {}; if (window.wasmState[UTF8ToString($0)] === undefined) { window.wasmState[UTF8ToString($0)] = $1; } },  
+ 86423: ($0, $1) => { window.wasmState = window.wasmState || {}; if (window.wasmState[UTF8ToString($0)] === undefined) { window.wasmState[UTF8ToString($0)] = UTF8ToString($1); } },  
+ 86583: ($0, $1) => { window.wasmState = window.wasmState || {}; window.wasmState[UTF8ToString($0)] = $1; },  
+ 86671: ($0) => { window.wasmState = window.wasmState || {}; var val = window.wasmState[UTF8ToString($0)]; return (val === undefined) ? 0 : val; },  
+ 86802: ($0, $1) => { window.wasmState = window.wasmState || {}; window.wasmState[UTF8ToString($0)] = UTF8ToString($1); },  
+ 86904: ($0) => { window.wasmState = window.wasmState || {}; var val = window.wasmState[UTF8ToString($0)]; if (val === undefined) { val = ""; } var length = lengthBytesUTF8(val) + 1; var buffer = _malloc(length); stringToUTF8(val, buffer, length); return buffer; },  
+ 87153: ($0) => { history.pushState({}, "", UTF8ToString($0)); }
 };
 
 // Imports from the Wasm binary.
@@ -4704,47 +4704,47 @@ var __indirect_function_table = makeInvalidEarlyAccess('__indirect_function_tabl
 var wasmMemory = makeInvalidEarlyAccess('wasmMemory');
 
 function assignWasmExports(wasmExports) {
-  assert(typeof wasmExports['invokeVNodeCallback'] != 'undefined', 'missing Wasm export: invokeVNodeCallback');
-  assert(typeof wasmExports['js_insertHTML'] != 'undefined', 'missing Wasm export: js_insertHTML');
-  assert(typeof wasmExports['handleRoute'] != 'undefined', 'missing Wasm export: handleRoute');
-  assert(typeof wasmExports['js_setTitle'] != 'undefined', 'missing Wasm export: js_setTitle');
-  assert(typeof wasmExports['js_setBodyAttr'] != 'undefined', 'missing Wasm export: js_setBodyAttr');
-  assert(typeof wasmExports['allocateString'] != 'undefined', 'missing Wasm export: allocateString');
-  assert(typeof wasmExports['malloc'] != 'undefined', 'missing Wasm export: malloc');
-  assert(typeof wasmExports['freeString'] != 'undefined', 'missing Wasm export: freeString');
-  assert(typeof wasmExports['free'] != 'undefined', 'missing Wasm export: free');
-  assert(typeof wasmExports['main'] != 'undefined', 'missing Wasm export: main');
-  assert(typeof wasmExports['fflush'] != 'undefined', 'missing Wasm export: fflush');
-  assert(typeof wasmExports['strerror'] != 'undefined', 'missing Wasm export: strerror');
-  assert(typeof wasmExports['emscripten_stack_get_end'] != 'undefined', 'missing Wasm export: emscripten_stack_get_end');
-  assert(typeof wasmExports['emscripten_stack_get_base'] != 'undefined', 'missing Wasm export: emscripten_stack_get_base');
-  assert(typeof wasmExports['emscripten_stack_init'] != 'undefined', 'missing Wasm export: emscripten_stack_init');
-  assert(typeof wasmExports['emscripten_stack_get_free'] != 'undefined', 'missing Wasm export: emscripten_stack_get_free');
-  assert(typeof wasmExports['_emscripten_stack_restore'] != 'undefined', 'missing Wasm export: _emscripten_stack_restore');
-  assert(typeof wasmExports['_emscripten_stack_alloc'] != 'undefined', 'missing Wasm export: _emscripten_stack_alloc');
-  assert(typeof wasmExports['emscripten_stack_get_current'] != 'undefined', 'missing Wasm export: emscripten_stack_get_current');
-  assert(typeof wasmExports['memory'] != 'undefined', 'missing Wasm export: memory');
-  assert(typeof wasmExports['__indirect_function_table'] != 'undefined', 'missing Wasm export: __indirect_function_table');
+  assert(wasmExports['invokeVNodeCallback'], 'missing Wasm export: invokeVNodeCallback');
   _invokeVNodeCallback = Module['_invokeVNodeCallback'] = createExportWrapper('invokeVNodeCallback', 1);
+  assert(wasmExports['js_insertHTML'], 'missing Wasm export: js_insertHTML');
   _js_insertHTML = Module['_js_insertHTML'] = createExportWrapper('js_insertHTML', 1);
+  assert(wasmExports['handleRoute'], 'missing Wasm export: handleRoute');
   _handleRoute = Module['_handleRoute'] = createExportWrapper('handleRoute', 1);
+  assert(wasmExports['js_setTitle'], 'missing Wasm export: js_setTitle');
   _js_setTitle = Module['_js_setTitle'] = createExportWrapper('js_setTitle', 1);
+  assert(wasmExports['js_setBodyAttr'], 'missing Wasm export: js_setBodyAttr');
   _js_setBodyAttr = Module['_js_setBodyAttr'] = createExportWrapper('js_setBodyAttr', 2);
+  assert(wasmExports['allocateString'], 'missing Wasm export: allocateString');
   _allocateString = Module['_allocateString'] = createExportWrapper('allocateString', 1);
+  assert(wasmExports['malloc'], 'missing Wasm export: malloc');
   _malloc = Module['_malloc'] = createExportWrapper('malloc', 1);
+  assert(wasmExports['freeString'], 'missing Wasm export: freeString');
   _freeString = Module['_freeString'] = createExportWrapper('freeString', 1);
+  assert(wasmExports['free'], 'missing Wasm export: free');
   _free = Module['_free'] = createExportWrapper('free', 1);
+  assert(wasmExports['main'], 'missing Wasm export: main');
   _main = Module['_main'] = createExportWrapper('main', 2);
+  assert(wasmExports['fflush'], 'missing Wasm export: fflush');
   _fflush = createExportWrapper('fflush', 1);
+  assert(wasmExports['strerror'], 'missing Wasm export: strerror');
   _strerror = createExportWrapper('strerror', 1);
+  assert(wasmExports['emscripten_stack_get_end'], 'missing Wasm export: emscripten_stack_get_end');
   _emscripten_stack_get_end = wasmExports['emscripten_stack_get_end'];
+  assert(wasmExports['emscripten_stack_get_base'], 'missing Wasm export: emscripten_stack_get_base');
   _emscripten_stack_get_base = wasmExports['emscripten_stack_get_base'];
+  assert(wasmExports['emscripten_stack_init'], 'missing Wasm export: emscripten_stack_init');
   _emscripten_stack_init = wasmExports['emscripten_stack_init'];
+  assert(wasmExports['emscripten_stack_get_free'], 'missing Wasm export: emscripten_stack_get_free');
   _emscripten_stack_get_free = wasmExports['emscripten_stack_get_free'];
+  assert(wasmExports['_emscripten_stack_restore'], 'missing Wasm export: _emscripten_stack_restore');
   __emscripten_stack_restore = wasmExports['_emscripten_stack_restore'];
+  assert(wasmExports['_emscripten_stack_alloc'], 'missing Wasm export: _emscripten_stack_alloc');
   __emscripten_stack_alloc = wasmExports['_emscripten_stack_alloc'];
+  assert(wasmExports['emscripten_stack_get_current'], 'missing Wasm export: emscripten_stack_get_current');
   _emscripten_stack_get_current = wasmExports['emscripten_stack_get_current'];
+  assert(wasmExports['memory'], 'missing Wasm export: memory');
   memory = wasmMemory = wasmExports['memory'];
+  assert(wasmExports['__indirect_function_table'], 'missing Wasm export: __indirect_function_table');
   __indirect_function_table = wasmExports['__indirect_function_table'];
 }
 
@@ -4882,7 +4882,7 @@ function checkUnflushedContent() {
   try { // it doesn't matter if it fails
     _fflush(0);
     // also flush in the JS FS layer
-    for (var name of ['stdout', 'stderr']) {
+    ['stdout', 'stderr'].forEach((name) => {
       var info = FS.analyzePath('/dev/' + name);
       if (!info) return;
       var stream = info.object;
@@ -4891,7 +4891,7 @@ function checkUnflushedContent() {
       if (tty?.output?.length) {
         has = true;
       }
-    }
+    });
   } catch(e) {}
   out = oldOut;
   err = oldErr;

@@ -141,8 +141,6 @@ class WebEngine {
                     string varid = var;
                     stringstream ss;
                     filebuffer << "\nauto "+varid+ " = make_shared<VPage>();\n";
-
-                    filebuffer.str();
                     ss << "\t"+varid+"->builder = [&](VPage& page) {\n";
                     AST_NODE *args = p->CHILD;
                     AST_NODE *styleParam = nullptr;
@@ -416,7 +414,14 @@ class WebEngine {
                                 ss << *(p->value) << "->get()";
                                 return ss.str();
                             } else {
-                                return "\n\t"+parent + ".addChild("+ *(p->value) +");\n";
+                                if (funcdecl)
+                                {
+                                    return *(p->value);
+                                }
+                                else
+                                {
+                                     return "\n\t"+parent + ".addChild("+ *(p->value) +");\n";
+                                }
                             }
                     } else {
                         // declaration: infer type from child
@@ -503,7 +508,7 @@ class WebEngine {
                     if (p->CHILD->TYPE == NODE_VARIABLE)
                     {
                         stringstream ss;
-                        ss << "\tcout << " << HandleAst(p->CHILD, parent, funcdecl) << " << endl;";
+                        ss << "\tcout << " << HandleAst(p->CHILD, parent, true) << " << endl;";
                         return  ss.str();
                     }
                     else

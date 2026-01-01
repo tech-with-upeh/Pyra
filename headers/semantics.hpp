@@ -15,6 +15,17 @@ enum VarType {
     TYPE_DICT,
 };
 
+string vartypestr(VarType type) {
+    switch (type) {
+        case TYPE_INT: return "INT"; break;
+        case TYPE_STRING: return "STRING"; break;
+        case TYPE_BOOL: return "BOOL"; break;
+        case TYPE_FUNCTION: return "FUNCTION"; break;
+        case TYPE_DICT: return "DICT"; break;
+        default: return "UNKNOWN"; break;
+    }
+}
+
 struct VarInfo {
     VarType type;
     bool initialized;
@@ -141,12 +152,15 @@ private:
                             parserError("Variable '" + name + "' used before assignment.", node);
                         } 
                     }
-                   if (it != scope.end()) {
-                        return scope[name].type;
-                   }
-                   if (st != statevars.end()) {
+                    if (st != statevars.end()) {
+                        cout << "State Variable '" << name << "' found in scope with type " << vartypestr(statevars[name].type) << "\n";
                         return statevars[name].type;
                    }
+                   if (it != scope.end()) {
+                        cout << "Variable '" << name << "' found in scope with type " << vartypestr(scope[name].type) << "\n";
+                        return scope[name].type;
+                   }
+                   
                 }
             }
             case NODE_page: {
@@ -186,12 +200,13 @@ private:
                             VarType node2 = checkNode(it_node->CHILD, true);
                             if (node2 != TYPE_DICT && node2 != TYPE_STRING)
                             {
-                                parserError("Segmentation Error: Unknown Type in Args in page() but got: '" + *(it_node->value) + "'", it_node);
+                                parserError("Unknown Type in Args in page() but got: '" + *(it_node->value) + "'", it_node);
                             }
                         }
                     } else {
+                        cout << "Index Page Detected\n";
                         auto pagesc = pagescope.find("/");
-                        if (pagesc == pagescope.end()) {
+                        if (pagesc != pagescope.end()) {
                             pagescope["/"] = {*(node->CHILD->SUB_STATEMENTS[0]->value), true};
                         } else {          
                             parserError("Index page already defined as: '" + pagesc->second.title + "'", node->CHILD->SUB_STATEMENTS[0]);
@@ -225,10 +240,11 @@ private:
                         for (auto it = node->CHILD->SUB_STATEMENTS.begin() +1; it != node->CHILD->SUB_STATEMENTS.end(); ++it)
                         {
                             AST_NODE* it_node = *it;
-                            VarType node2 = checkNode(it_node->CHILD, true, true);
+                            VarType node2 = checkNode(it_node, true, true);
+                            cout << "Node2 Type in View() Args Check: " << vartypestr(node2) << "\n";
                             if (node2 != TYPE_DICT && node2 != TYPE_STRING && node2 != TYPE_FUNCTION)
                             {
-                                parserError("Segmentation Error: Unknown Type in Args in page() but got: '" + *(it_node->value) + "'", it_node);
+                                parserError("Unknown Type in Args in View() but got: '" + *(it_node->value) + "<->" + *(it_node->CHILD->value) + "'", it_node->CHILD);
                             }
                         }
                     }
@@ -250,12 +266,14 @@ private:
                 std::string op = *node->value;
 
                 if (leftType != rightType) {
-                    semanticError("Type mismatch in binary operation '" + op + "'");
+                    cout << "Left Type: " << vartypestr(leftType) << "\n";
+                    cout << "Right Type: " << vartypestr(rightType) << "\n";
+                   parserError("Type mismatch in binary operation '" + op + "'", node);
                 }
 
                 if (op == "*" || op == "/") {
                     if (leftType != TYPE_INT)
-                        semanticError("Operator '" + op + "' only supports numbers.");
+                        parserError("Operator '" + op + "' only supports numbers.", node);
                     return TYPE_INT;
                 }
 
@@ -377,7 +395,18 @@ private:
                 for (auto stmt : node->SUB_STATEMENTS)
                     checkNode(stmt);
                 return TYPE_UNKNOWN;
-
+            case NODE_STYLESHEET:
+                for (auto stmt : node->SUB_STATEMENTS)
+                    checkNode(stmt, false);
+                return TYPE_UNKNOWN;
+            case NODE_CLS:
+                checkNode(node->CHILD, true);
+                return TYPE_UNKNOWN;
+            case NODE_MEDIA_QUERY:
+                checkNode(node->CHILD);
+                for (auto stmt : node->SUB_STATEMENTS)
+                    checkNode(stmt, false);
+                return TYPE_UNKNOWN;
             default:
                 return TYPE_UNKNOWN;
         }

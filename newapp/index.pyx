@@ -1,39 +1,37 @@
-page("My APP", style=#{
-    "height": "100%",
-    "width": "100%",
-    "padding": "0",
-    margin: "0",
-    "background-color": "pink"
-}) {
-    pi = 3142
-    @state num : "red"    
-    view("mydiv", style={
-    "height": "50px",
-    "background-color": "green",
-    "padding": "0"
-}, onclick=(num) {
-        print(num)
+page("HOME PAGE", style={
+        "background-color": "black",
+        "padding": "0px",
+        "margin": "0px",
+        "color": "white"
     }) {
-        text('Clime and check console!')
-    }
-
-    view("myview", style={
-        "height": "100px",
-        "background-color": num
-    }, onclick=(num) {
-        if(num == "red") {
-            num = "yellow"
-        } else {
-            num = "red"
+        vsr = 0
+        @state num : 0
+        @state mytext : "Click me and check console!"
+        view("mydiv", style={
+            "height": "50px",
+            "background-color": "green"
+        }, onclick=(num, mytext) {
+            num = num + 1
+            mytext = "Clicked!!"
+            print(num)
+        }) {
+            text(mytext, style={
+                "text-align": "center",
+                "margin": "0px"
+            })
         }
-        print("printing: ->" + num)
-    })
-}
+        view("countdiv", style={
+            "margin-top": "20px",
+            "font-size": "20px"
+        }) {
+            text('go to about', onclick=() {
+                go("/about")
+            })
+            
+        } 
+  }
 
-page("Oh Oh hhhhh", route="notfound") {
-    text("My custidwjbdsbkjj")
-}
 
-page("About Page", route="about") {
-    text("My About")
+page("about") {
+    text("This is the about page.")
 }

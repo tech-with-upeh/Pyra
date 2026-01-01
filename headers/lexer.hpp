@@ -38,6 +38,7 @@ enum Tokentype {
     TOKEN_COMMA,
     TOKEN_HASH,
     TOKEN_ATSYM,
+    TOKEN_ANDSYM,
     TOKEN_NEWLINE,
     TOKEN_BACKLASH,
     TOKEN_EOF
@@ -122,6 +123,10 @@ std::string typetostring(enum Tokentype TYPE)
         return "NEWLINE";
     case TOKEN_BACKLASH:
         return "BACKLASH";
+    case TOKEN_ATSYM:
+        return "ATSYM";
+    case TOKEN_ANDSYM:
+        return "ANDSYM";
     default:
         return "UNKNOWN";
     }
@@ -142,7 +147,7 @@ class Lexer
             ctrl = false;
         }
         std::vector<std::string> keywords = {
-            "if", "else", "while", "for", "return", "class", "import", "pass", "break", "continue", "def","type", "true", "false","print", "page", "app", "view", "text", "img", "input", "state", "go"
+            "if", "else", "while", "for", "return", "class", "import", "pass", "break", "continue", "def","type", "true", "false","print", "page", "app", "view", "text", "img", "input", "state", "go", "stylesheet"
         };
         
         char advance()
@@ -334,6 +339,9 @@ class Lexer
                         break;}
                 case '\'':
                         {tokens.push_back(tokenizeSTR(TOKEN_SINGLEQUOTE));
+                        break;}
+                case '&':
+                        {tokens.push_back(tokenizespecial(TOKEN_ANDSYM));
                         break;}
                 case '+':
                         {

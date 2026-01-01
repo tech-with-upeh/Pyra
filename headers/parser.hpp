@@ -45,7 +45,10 @@ enum NODE_TYPE {
     //framework logic
     NODE_SETSTATE,
     NODE_GETSTATE,
-    NODE_GO
+    NODE_GO,
+    NODE_STYLESHEET,
+    NODE_CLS,
+    NODE_MEDIA_QUERY
 };
 
 struct AST_NODE {
@@ -94,6 +97,9 @@ string nodetostr(enum NODE_TYPE tYPE) {
         case NODE_SETSTATE: return "SETSTATE"; break;
         case NODE_GETSTATE: return "GETSTATE"; break;
         case NODE_GO: return "GO";
+        case NODE_STYLESHEET: return "STYLESHEET"; break;
+        case NODE_CLS: return "CLASS"; break;
+        case NODE_MEDIA_QUERY: return "MEDIA_QUERY"; break;
         default: return "UNKNOWN"; break;
     }
 }
@@ -266,7 +272,7 @@ public:
     return listNode;
 }
 
-    AST_NODE *parseDict() {
+    AST_NODE *parseDict(bool styleparse = false) {
         AST_NODE* objNode = new AST_NODE();
             objNode->TYPE = NODE_DICT;
             if (current->TYPE == TOKEN_HASH)
@@ -330,7 +336,12 @@ public:
                         // Expect colon
                         proceed(TOKEN_COLON);
                         // Parse value (can be expression, string, int, or even nested object)
-                        AST_NODE* valueNode = parseExpression();
+                        cout << "Style parse is: " << styleparse << "\n";
+                        AST_NODE* valueNode;
+                        
+                            valueNode = parseExpression();
+                        
+                        
                         // Make a key–value pair node
                         AST_NODE* pairNode = new AST_NODE();
                         pairNode->TYPE = NODE_KEYVALUE;
@@ -1304,6 +1315,119 @@ public:
     }
 
 
+    AST_NODE* parseStylesheet() {
+    AST_NODE* styleNode = new AST_NODE();
+    styleNode->TYPE = NODE_STYLESHEET;
+
+    proceed(TOKEN_KEYWORD); // "stylesheet"
+    if (current->TYPE == TOKEN_ANDSYM) {
+        styleNode->CHILD = new AST_NODE();
+        styleNode->CHILD->TYPE = NODE_BOOL;
+        styleNode->CHILD->value = new string("true");
+        styleNode->CHILD->lineno = current->lineno;
+            styleNode->CHILD->sourceLine = current->sourceLine;
+           styleNode->CHILD->extra = current->extra;
+            styleNode->CHILD->charno = current->charno;
+        proceed(TOKEN_ANDSYM);
+    }
+    if (current->TYPE != TOKEN_ID) {
+        parserError("Expected stylesheet name after 'stylesheet'");
+    }
+    styleNode->value = &current->value;
+    proceed(TOKEN_ID);
+    
+    proceed(TOKEN_LBRACE);
+
+    while (current->TYPE != TOKEN_RBRACE && current->TYPE != TOKEN_EOF) {
+        // Skip newlines
+        while (current->TYPE == TOKEN_NEWLINE)
+            proceed(TOKEN_NEWLINE);
+
+        if (current->TYPE == TOKEN_RBRACE)
+            break;
+
+        // Top-level identifier
+        if (current->TYPE == TOKEN_ID) {
+            string selector = current->value;
+           
+
+            if (selector == "media") {
+                // Media query node
+                 proceed(TOKEN_ID);
+                AST_NODE* mediaNode = new AST_NODE();
+                mediaNode->TYPE = NODE_MEDIA_QUERY;
+                mediaNode->lineno = current->lineno;
+                mediaNode->sourceLine = current->sourceLine;
+                mediaNode->extra = current->extra;
+                mediaNode->charno = current->charno;
+
+                proceed(TOKEN_LPAREN);
+                mediaNode->CHILD = parseComparison(); // the query string
+                proceed(TOKEN_RPAREN);
+
+                proceed(TOKEN_LBRACE);
+                while (current->TYPE != TOKEN_RBRACE && current->TYPE != TOKEN_EOF) {
+                    while (current->TYPE == TOKEN_NEWLINE)
+                        proceed(TOKEN_NEWLINE);
+                    
+                    if (current->TYPE == TOKEN_RBRACE)
+                        break;
+
+                    if (current->TYPE == TOKEN_ID) {
+                        AST_NODE* selectorNode = new AST_NODE();
+                        selectorNode->TYPE = NODE_CLS;
+                        selectorNode->value = &current->value;
+                        selectorNode->lineno = current->lineno;
+                        selectorNode->sourceLine = current->sourceLine;
+                        selectorNode->extra = current->extra;
+                        selectorNode->charno = current->charno;
+
+                        string innerSelector = current->value;
+                        proceed(TOKEN_ID);
+                        selectorNode->CHILD = parseDict(true);
+
+                        mediaNode->SUB_STATEMENTS.push_back(selectorNode);
+                    } else {
+                        parserError("Expected selector identifier inside media query, got: " + current->value);
+                    }
+
+                    while (current->TYPE == TOKEN_NEWLINE)
+                        proceed(TOKEN_NEWLINE);
+                }
+                proceed(TOKEN_RBRACE);
+                styleNode->SUB_STATEMENTS.push_back(mediaNode);
+
+            } else {
+                // Normal selector
+                AST_NODE* selectorNode = new AST_NODE();
+                selectorNode->TYPE = NODE_CLS;
+                selectorNode->value = &current->value;
+                selectorNode->lineno = current->lineno;
+                selectorNode->sourceLine = current->sourceLine;
+                selectorNode->extra = current->extra;
+                selectorNode->charno = current->charno;
+                proceed(TOKEN_ID);
+                proceed(TOKEN_EQ);
+                selectorNode->CHILD = parseDict(true);
+                styleNode->SUB_STATEMENTS.push_back(selectorNode);
+            }
+        } else {
+            parserError("Expected selector or 'media', got: " + current->value);
+        }
+
+        // Optional comma between selectors
+        if (current->TYPE == TOKEN_COMMA)
+            proceed(TOKEN_COMMA);
+
+        while (current->TYPE == TOKEN_NEWLINE)
+            proceed(TOKEN_NEWLINE);
+    }
+
+    proceed(TOKEN_RBRACE);
+    return styleNode;
+}
+
+
     std::vector<std::string> defined_keywords = { "true", "false", "null" };
     std::vector<std::string> loop_keywords = { "continue", "break", "pass" };
     // ---------- Keyword Dispatcher ----------
@@ -1360,7 +1484,7 @@ public:
                 string *funcIdent = &current->value;
                 proceed(current->TYPE);
                 return parseFunctionCall(funcIdent, NODE_GO);
-            } else {
+            }else {
                 parserError("Unknown keyword: " + current->value);
             }
         }
@@ -1434,7 +1558,14 @@ public:
                 
                 return parseAtSym();
             } else {
-                parserError("State Variables can only be in a page, please write it under a page scope");
+                proceed(current->TYPE);
+                if (current->value == "state") {
+                    parserError("State can only be set inside page() functions");
+                } 
+                if (current->value == "stylesheet") {
+                    return parseStylesheet();
+                }
+                parserError("@ only allows 'state' or 'stylesheet'");
             }
         } else if (current->TYPE == TOKEN_HASH)
             {proceed(current->TYPE);
