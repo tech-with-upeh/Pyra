@@ -1,6 +1,7 @@
 #pragma once
 #include <emscripten.h>
 #include <string>
+#include <cstring>
 #include <vector>
 #include <unordered_map>
 #include <sstream>
@@ -170,12 +171,20 @@ struct VPage {
     std::string title;
     std::vector<VNode> children;
     std::unordered_map<std::string, std::string> bodyAttrs;
+    std::string stylesheet;
 
     std::function<void(VPage&)> builder; 
+
     
     // Helper methods
     VPage& setTitle(const std::string& newTitle) {
         title = newTitle;
+        return *this;
+    }
+
+    VPage& addStyle(const std::string& newstylesheet) {
+        std::cout << "adding style" << std::endl;
+        stylesheet = newstylesheet;
         return *this;
     }
     
@@ -227,6 +236,7 @@ public:
         auto it = routes().find(path);
         if (it != routes().end()) {
             currentPath() = path;
+            GlobalState::setCurrentPage(&(*(it->second)));
             it->second->render(); 
 
             if (push) {
@@ -291,6 +301,7 @@ extern "C" {
     EMSCRIPTEN_KEEPALIVE
     void js_insertHTML(const char* html) {
         EM_ASM({
+            document.body.style = allocateUTF8(""); 
             document.body.innerHTML = UTF8ToString($0);
         }, html);
     }
@@ -308,10 +319,28 @@ extern "C" {
     }
 
     EMSCRIPTEN_KEEPALIVE
+    void js_insertCSS(const char* css) {
+        if (strcmp(css, "") != 0){    
+            EM_ASM({
+                if (!document.getElementById("__ink_styles")) {
+                const style = document.createElement("style");
+                style.id = "__ink_styles";
+                style.innerHTML = UTF8ToString($0);
+                document.head.appendChild(style);
+                }
+            }, css);
+        }else {
+            std::cout << "Empty css" << std::endl;
+        }
+    }
+
+    EMSCRIPTEN_KEEPALIVE
     void js_setBodyAttr(const char* key, const char* val) {
-        EM_ASM({
-            document.body.setAttribute(UTF8ToString($0), UTF8ToString($1));
-        }, key, val);
+        if (strcmp(key, "")) {
+            EM_ASM({
+                document.body.setAttribute(UTF8ToString($0), UTF8ToString($1));
+            }, key, val);
+        }
     }
     
     EMSCRIPTEN_KEEPALIVE
@@ -375,6 +404,7 @@ inline void renderPage(VPage& page) {
 
     js_insertHTML(html.str().c_str());
     js_setTitle(page.title.c_str());
+    js_insertCSS(page.stylesheet.c_str());
 
     // Apply body attributes
     for(const auto& [key, value] : page.bodyAttrs) {

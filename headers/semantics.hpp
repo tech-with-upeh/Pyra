@@ -170,16 +170,16 @@ private:
                        parserError("Title can only be a string but got: '" + *(node->CHILD->SUB_STATEMENTS[0]->value) + "'", node->CHILD->SUB_STATEMENTS[1]);
                     }
                    
+                    bool isindex = false;
                     if (node->CHILD->SUB_STATEMENTS.size() > 1)
                     {
                         for (auto it = node->CHILD->SUB_STATEMENTS.begin() +1; it != node->CHILD->SUB_STATEMENTS.end(); ++it)
                         {
                             AST_NODE* it_node = *it;
-                            
+                            cout << *(it_node->value) << endl;
                             if(*(it_node->value) == "route") {
-
+                                cout << "got route\n";                               
                                 
-                                bool isindex = false;
                                 if (*(it_node->CHILD->value) == "/")
                                 {
                                     isindex = true;
@@ -190,9 +190,10 @@ private:
                                 }
                                 auto checkroute = pagescope.find(*(it_node->CHILD->value));
                                 if (checkroute == pagescope.end()) {
+                                    cout << "I---> " << *(it_node->CHILD->value) << endl;
                                     pagescope[*(it_node->CHILD->value)] = {*(node->CHILD->SUB_STATEMENTS[0]->value), isindex};
                                 } else {
-                                    parserError("Route '" + *(it_node->CHILD->value) + "' already defined as: '" + checkroute->second.title + "'", node->CHILD->SUB_STATEMENTS[0]);
+                                    parserError("Route '" + *(it_node->CHILD->value) + "' already: '" + checkroute->second.title + "'", node->CHILD->SUB_STATEMENTS[0]);
                                 }
                                 
                             }
@@ -202,14 +203,19 @@ private:
                                 parserError("Unknown Type in Args in page() but got: '" + *(it_node->value) + "'", it_node);
                             }
                         }
-                        auto pagesc = pagescope.find("/");
-                        if (pagesc == pagescope.end()) {
-                            pagescope["/"] = {*(node->CHILD->SUB_STATEMENTS[0]->value), true};
-                        } else {          
-                            parserError("Index page already defined as: '" + pagesc->second.title + "'", node->CHILD->SUB_STATEMENTS[0]);
-                        }     
+                        if (isindex) {
+                            cout << "finishedchecks! is found " << endl;
+                            auto pagesc = pagescope.find("/");
+                            if (pagesc == pagescope.end()) {
+                                pagescope["/"] = {*(node->CHILD->SUB_STATEMENTS[0]->value), true};
+                            } else {          
+                                parserError("Index page already defined: '" + pagesc->second.title + "'", node->CHILD->SUB_STATEMENTS[0]);
+                            } 
+                        }
+                            
                     } else {
                         auto pagesc = pagescope.find("/");
+                        
                         if (pagesc == pagescope.end()) {
                             pagescope["/"] = {*(node->CHILD->SUB_STATEMENTS[0]->value), true};
                         } else {          

@@ -1,0 +1,79 @@
+#include <iostream>
+#include "vdom.hpp"
+using namespace std;
+
+void updateUI() {
+    // Re-render the current page
+    if (GlobalState::getCurrentPage()) {
+        GlobalState::getCurrentPage()->render();
+    }
+}
+auto page_1 = make_shared<VPage>();
+
+auto page_2 = make_shared<VPage>();
+int main() {
+	string unis = R"(
+		.btn {
+			background-color: purple
+		}
+	)";
+
+	string myt = "HOME PAGE";
+	Router::add("/abt",page_1);
+	Router::add("/",page_2);
+	page_1->builder = [&, myt](VPage& page) {
+	page.addStyle(".btn {background-color: purple}");
+	page.setTitle("my homepaes");
+	page.bodyAttrs["style"] = "background-color:black;padding:0px;margin:0px;color:white;";
+
+	    int vsr = 0;
+	
+	auto num = make_shared<appstate::State<int>>("num",0);
+	
+	auto mytext = make_shared<appstate::State<string>>("mytext","Click me and check console!");
+	
+	VNode view_1("div");
+	view_1.setAttr("id", "mydiv");
+	view_1.setAttr("class", "btn");
+	view_1.onClick([num, mytext]() {
+			num->set((num->get() + 1));
+			mytext->set("Clicked!!");
+			cout << num->get() << endl;
+		updateUI();	});
+	view_1.setAttr("style", "height:50px;");
+
+	VNode text_1("p",mytext->get());
+	text_1.setAttr("style", "text-align:center;margin:0px;");
+
+	view_1.addChild(text_1);
+	VNode text2("p", myt);
+	page.addChild(text2);
+	page.addChild(view_1);
+	
+	VNode view_3("div");
+	view_3.setAttr("id", "countdiv");
+	view_3.setAttr("style", "margin-top:20px;font-size:20px;");
+
+	VNode text_3("p","go to about");
+	text_3.onClick([]() {
+		Router::go("/");
+		updateUI();	});
+
+	view_3.addChild(text_3);
+	page.addChild(view_3);
+};
+	page_2->builder = [&](VPage& page) {
+	page.setTitle("about");
+
+	
+	VNode text_5("p","This is the Ho.");
+
+	page.addChild(text_5);
+};
+	EM_ASM({
+		Module._handleRoute(allocateUTF8(window.location.pathname));
+		window.addEventListener("popstate", () => {
+			Module._handleRoute(allocateUTF8(window.location.pathname));
+		});
+	});return 0;
+}

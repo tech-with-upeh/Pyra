@@ -1,9 +1,19 @@
-page("HOME PAGE", style={
-    "background-color": "black",
-    "padding": "0px",
-    "margin": "0px",
-    "color": "white"
-    }) {
+ht = "100px"
+
+@stylesheet & uni {
+    body = {
+        "height": ht,
+        "width":"100px"
+    } 
+    btn = {
+        "height":"100px",
+        color: "red"
+        } 
+    media("min-width: 600px") { 
+        btn {"height":"50px", color: "yellow"}
+    }
+}
+page("HOME PAGE", cls="body", route="/abt") {
     vsr = 0
     @state num : 0
     @state mytext : "Click me and check console!"
@@ -24,12 +34,13 @@ page("HOME PAGE", style={
         "margin-top": "20px",
         "font-size": "20px"
     }) {
-        text('go to about', onclick=() {
-            go("/about")
+        text('go to about', cls="btn", onclick=() {
+            go("/")
         })
         
     } 
 }
 page("about") {
-    text("This is the about page.")
-}
+    inpage = "sdkd"
+    text("This is the Ho.", cls="btn")
+} 
