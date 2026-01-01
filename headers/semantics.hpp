@@ -153,17 +153,16 @@ private:
                         } 
                     }
                     if (st != statevars.end()) {
-                        cout << "State Variable '" << name << "' found in scope with type " << vartypestr(statevars[name].type) << "\n";
                         return statevars[name].type;
                    }
                    if (it != scope.end()) {
-                        cout << "Variable '" << name << "' found in scope with type " << vartypestr(scope[name].type) << "\n";
                         return scope[name].type;
                    }
                    
                 }
             }
             case NODE_page: {
+                cout << "Semantic Check on page() Node\n";
                 if (node->CHILD) {
                     VarType node1 = checkNode(node->CHILD->SUB_STATEMENTS[0]);
                     if (node1 != TYPE_STRING)
@@ -203,10 +202,15 @@ private:
                                 parserError("Unknown Type in Args in page() but got: '" + *(it_node->value) + "'", it_node);
                             }
                         }
-                    } else {
-                        cout << "Index Page Detected\n";
                         auto pagesc = pagescope.find("/");
-                        if (pagesc != pagescope.end()) {
+                        if (pagesc == pagescope.end()) {
+                            pagescope["/"] = {*(node->CHILD->SUB_STATEMENTS[0]->value), true};
+                        } else {          
+                            parserError("Index page already defined as: '" + pagesc->second.title + "'", node->CHILD->SUB_STATEMENTS[0]);
+                        }     
+                    } else {
+                        auto pagesc = pagescope.find("/");
+                        if (pagesc == pagescope.end()) {
                             pagescope["/"] = {*(node->CHILD->SUB_STATEMENTS[0]->value), true};
                         } else {          
                             parserError("Index page already defined as: '" + pagesc->second.title + "'", node->CHILD->SUB_STATEMENTS[0]);
@@ -241,7 +245,6 @@ private:
                         {
                             AST_NODE* it_node = *it;
                             VarType node2 = checkNode(it_node, true, true);
-                            cout << "Node2 Type in View() Args Check: " << vartypestr(node2) << "\n";
                             if (node2 != TYPE_DICT && node2 != TYPE_STRING && node2 != TYPE_FUNCTION)
                             {
                                 parserError("Unknown Type in Args in View() but got: '" + *(it_node->value) + "<->" + *(it_node->CHILD->value) + "'", it_node->CHILD);
@@ -266,8 +269,6 @@ private:
                 std::string op = *node->value;
 
                 if (leftType != rightType) {
-                    cout << "Left Type: " << vartypestr(leftType) << "\n";
-                    cout << "Right Type: " << vartypestr(rightType) << "\n";
                    parserError("Type mismatch in binary operation '" + op + "'", node);
                 }
 
