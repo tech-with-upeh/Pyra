@@ -49,7 +49,11 @@ enum NODE_TYPE {
     NODE_GO,
     NODE_STYLESHEET,
     NODE_CLS,
-    NODE_MEDIA_QUERY
+    NODE_MEDIA_QUERY,
+    NODE_TOSTR,
+    NODE_TOINT,
+    NODE_TOFLOAT,
+    NODE_FLOAT
 };
 
 struct AST_NODE {
@@ -102,6 +106,10 @@ string nodetostr(enum NODE_TYPE tYPE) {
         case NODE_CLS: return "CLASS"; break;
         case NODE_MEDIA_QUERY: return "MEDIA_QUERY"; break;
         case NODE_CANVAS: return "CANVAS"; break;
+        case NODE_TOSTR: return "TOSTRING"; break;
+        case NODE_TOINT: return "TOINT"; break;
+        case NODE_TOFLOAT: return "TOFLOAT"; break;
+        case NODE_FLOAT: return "FLOAT"; break;
         default: return "UNKNOWN"; break;
     }
 }
@@ -151,6 +159,9 @@ public:
     // ---------- Token Consumption ----------
     Token *proceed(enum Tokentype Tokentype) {
         if (current->TYPE != Tokentype) {
+            if (current->TYPE == TOKEN_NEWLINE) {
+                parserError("Unexpected NewLine (expected " + typetostring(Tokentype) + ")");
+            } 
             parserError("Unexpected Token: " + current->value + " (expected " + typetostring(Tokentype) + ")");
         }
         index++;
@@ -338,7 +349,6 @@ public:
                         // Expect colon
                         proceed(TOKEN_COLON);
                         // Parse value (can be expression, string, int, or even nested object)
-                        cout << "Style parse is: " << styleparse << "\n";
                         AST_NODE* valueNode;
                         
                             valueNode = parseExpression();
@@ -374,6 +384,16 @@ public:
                 return objNode;
             }
                  
+    }
+
+    AST_NODE *parseConversions(NODE_TYPE nodetype) {
+        proceed(TOKEN_KEYWORD);
+        AST_NODE *node = new AST_NODE();
+        node->TYPE = nodetype;
+        proceed(TOKEN_LPAREN);
+        node->CHILD = parseComparison();
+        proceed(TOKEN_RPAREN);
+        return node;
     }
 
 
@@ -428,6 +448,18 @@ public:
 
         if (current->TYPE == TOKEN_INT) return parseINT();
 
+        if (current->TYPE == TOKEN_FLOAT) {
+            AST_NODE *node = new AST_NODE();
+            node->TYPE = NODE_FLOAT;
+            node->value = &current->value;
+            node->lineno = current->lineno;
+            node->sourceLine = current->sourceLine;
+            node->extra = current->extra;
+            node->charno = current->charno;
+            proceed(TOKEN_FLOAT);
+            return node;
+        }
+
         if (current->TYPE == TOKEN_STRING) {
             AST_NODE *node = new AST_NODE();
             node->TYPE = NODE_STRING;
@@ -456,6 +488,18 @@ public:
                 node->extra = current->extra;
                 node->charno = current->charno;
                 return node;
+            } else if (current->value == "img") {
+                return parseView(NODE_IMAGE);
+            } else if (current->value == "input") {
+                return parseView(NODE_INPUT);
+            } else if (current->value == "canvas") {
+                return parseView(NODE_CANVAS);
+            } else if (current->value == "to_int") {
+                return parseConversions(NODE_TOINT);
+            } else if (current->value == "to_str") {
+                return parseConversions(NODE_TOSTR);
+            } else if (current->value == "to_float") {
+                return parseConversions(NODE_TOFLOAT);
             }
         }
 
@@ -849,6 +893,10 @@ public:
             funcNode->value = funcName;
         } else {
         funcNode->value = funcname;
+        funcNode->lineno = current->lineno;
+            funcNode->sourceLine = current->sourceLine;
+            funcNode->extra = current->extra;
+            funcNode->charno = current->charno; 
         }        
 
         proceed(TOKEN_LPAREN);
@@ -859,6 +907,10 @@ public:
             AST_NODE *param = new AST_NODE();
             param->TYPE = NODE_VARIABLE;
             param->value = &current->value;
+            param->lineno = current->lineno;
+            param->sourceLine = current->sourceLine;
+            param->extra = current->extra;
+            param->charno = current->charno;
             proceed(TOKEN_ID);
             args->SUB_STATEMENTS.push_back(param);
 
@@ -867,6 +919,10 @@ public:
                 AST_NODE *param = new AST_NODE();
                 param->TYPE = NODE_VARIABLE;
                 param->value = &current->value;
+                param->lineno = current->lineno;
+                param->sourceLine = current->sourceLine;
+                param->extra = current->extra;
+                param->charno = current->charno;
                 proceed(TOKEN_ID);
                 args->SUB_STATEMENTS.push_back(param);
             }
@@ -876,6 +932,7 @@ public:
 
         // Parse function body
         proceed(TOKEN_LBRACE);
+        
         while (current->TYPE != TOKEN_RBRACE && current->TYPE != TOKEN_EOF) {
             while (current->TYPE == TOKEN_NEWLINE)
                 proceed(TOKEN_NEWLINE);
@@ -883,12 +940,29 @@ public:
             if (current->TYPE == TOKEN_RBRACE)
                 break;
             
-            if (current->TYPE == TOKEN_KEYWORD)
+            if (current->TYPE == TOKEN_KEYWORD) {
                 // || current->value != "true" || current->value != "false"
                 if (current->value == "continue")
                 {
                     parserError("Unexpected Keyword in Function declaration : "+ current->value);
                 }
+                if (current->value == "return")
+                {
+                    if (callback) {
+                        parserError("Callbacks cannot have 'return' statements.");
+                    }
+                    funcNode->SUB_STATEMENTS.push_back(parseKEYWORDS());
+                    while (current->TYPE == TOKEN_NEWLINE)
+                        proceed(TOKEN_NEWLINE);
+                    if (current->TYPE != TOKEN_RBRACE && current->TYPE != TOKEN_EOF && current->TYPE != TOKEN_NEWLINE)
+                    {
+                        parserError("'return' statement found in function '" + *funcNode->value + "'. All code after 'return' is unreachable.");
+                    } else {
+                        break;
+                    }
+                   
+                }
+            }
             funcNode->SUB_STATEMENTS.push_back(parseStatement());
 
             while (current->TYPE == TOKEN_NEWLINE)
@@ -1295,12 +1369,8 @@ public:
                             heightNode->TYPE = NODE_VARIABLE;
                             heightNode->value = &current->value;
                             proceed(TOKEN_ID);
-                        } else if (current->TYPE == TOKEN_STRING) {
-                            heightNode->TYPE = NODE_STRING;
-                            heightNode->value = &current->value;
-                            proceed(TOKEN_STRING);
-                        }else {
-                            parserError("Height must be a int or identifier, Worst case a string!");
+                        } else {
+                            parserError("Height must be a Number or identifier");
                         }
                         heightNode->lineno = current->lineno;
                         heightNode->sourceLine = current->sourceLine;
@@ -1319,12 +1389,7 @@ public:
                             widthNode->TYPE = NODE_VARIABLE;
                             widthNode->value = &current->value;
                             proceed(TOKEN_ID);
-                        } else if (current->TYPE == TOKEN_STRING) {
-                            widthNode->TYPE = NODE_STRING;
-                            widthNode->value = &current->value;
-                            proceed(TOKEN_STRING);
-                        }
-                        else {
+                        } else {
                             parserError("width must be a Number or identifier");
                         }
                         widthNode->lineno = current->lineno;
@@ -1515,6 +1580,30 @@ public:
                 node->CHILD = parseComparison();
                 proceed(TOKEN_RPAREN);
                 return node;
+            } else if (current->value == "to_int") {
+                proceed(TOKEN_KEYWORD);
+                AST_NODE *node = new AST_NODE();
+                node->TYPE = NODE_TOINT;
+                proceed(TOKEN_LPAREN);
+                node->CHILD = parseComparison();
+                proceed(TOKEN_RPAREN);
+                return node;
+            } else if (current->value == "to_str") {
+                proceed(TOKEN_KEYWORD);
+                AST_NODE *node = new AST_NODE();
+                node->TYPE = NODE_TOSTR;
+                proceed(TOKEN_LPAREN);
+                node->CHILD = parseComparison();
+                proceed(TOKEN_RPAREN);
+                return node;
+            } else if (current->value == "to_float") {
+                proceed(TOKEN_KEYWORD);
+                AST_NODE *node = new AST_NODE();
+                node->TYPE = NODE_TOFLOAT;
+                proceed(TOKEN_LPAREN);
+                node->CHILD = parseComparison();
+                proceed(TOKEN_RPAREN);
+                return node;
             } else if (current->value == "img") {
                 return parseView(NODE_IMAGE);
             }else if (current->value == "if") {
@@ -1613,9 +1702,11 @@ public:
 
     // ---------- Generic Statement ----------
     AST_NODE *parseStatement(bool ispage = false) {
-        if (current->TYPE == TOKEN_ID) {
+        if (current->TYPE == TOKEN_INT || current->TYPE == TOKEN_FLOAT) {
+            return parseExpression();
+        }
+        else if (current->TYPE == TOKEN_ID) {
             if(current->value == "onmount") {
-                cout << "FoUNDDDD";
                 string *funcname = &current->value;
                 proceed(current->TYPE);
                 if(!ispage) {
@@ -1659,16 +1750,17 @@ public:
                     if (current->TYPE == TOKEN_DIVOP)
                     {
                         endofcomment = true;
+                        proceed(TOKEN_DIVOP);
                     }
-                    return parseFunctionDecl(true);
+                    return nullptr;
                 }
                 
                 proceed(current->TYPE);
             }
             return nullptr;
-        }else if (current->TYPE == TOKEN_KEYWORD)
+        }else if (current->TYPE == TOKEN_KEYWORD) {
             return parseKEYWORDS();
-        else {
+        } else {
             parserError("Unexpected token in statement : " + current->value);
         }
         return nullptr;

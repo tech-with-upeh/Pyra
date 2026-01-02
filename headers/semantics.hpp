@@ -177,9 +177,7 @@ private:
                         {
                             AST_NODE* it_node = *it;
                             cout << *(it_node->value) << endl;
-                            if(*(it_node->value) == "route") {
-                                cout << "got route\n";                               
-                                
+                            if(*(it_node->value) == "route") {                              
                                 if (*(it_node->CHILD->value) == "/")
                                 {
                                     isindex = true;
@@ -204,7 +202,6 @@ private:
                             }
                         }
                         if (isindex) {
-                            cout << "finishedchecks! is found " << endl;
                             auto pagesc = pagescope.find("/");
                             if (pagesc == pagescope.end()) {
                                 pagescope["/"] = {*(node->CHILD->SUB_STATEMENTS[0]->value), true};
@@ -227,6 +224,10 @@ private:
                 {
                     for (auto &i : node->SUB_STATEMENTS)
                     {
+                        if (i->TYPE == NODE_FUNCTION_DECL && *(i->value) == "onmount")  {
+                            checkNode(i, false, true);
+                            continue;
+                        }
                         checkNode(i);
                     }
                 }
@@ -252,7 +253,7 @@ private:
                         {
                             AST_NODE* it_node = *it;
                             VarType node2 = checkNode(it_node, true, true);
-                            if (node2 != TYPE_DICT && node2 != TYPE_STRING && node2 != TYPE_FUNCTION)
+                            if (node2 != TYPE_DICT && node2 != TYPE_STRING && node2 != TYPE_FUNCTION && node2 != TYPE_INT)
                             {
                                 parserError("Unknown Type in Args in View() but got: '" + *(it_node->value) + "<->" + *(it_node->CHILD->value) + "'", it_node->CHILD);
                             }
@@ -308,7 +309,7 @@ private:
                                 
                                 if(st == statevars.end()) { 
                                     if(it == scope.end()) {
-                                        parserError("Variable '" + name + "' used before assignment.", node);
+                                        parserError("Variable '" + name + "' used before assignment.", param);
                                     } 
                                 }
                             if (it != scope.end()) {
@@ -350,6 +351,9 @@ private:
             }
 
             // Return and print
+            case NODE_TOINT:
+            case NODE_TOSTR:
+            case NODE_TOFLOAT:
             case NODE_RETURN:
             case NODE_PRINT:
             case NODE_GO:

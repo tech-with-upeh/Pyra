@@ -41,6 +41,8 @@ enum Tokentype {
     TOKEN_ANDSYM,
     TOKEN_NEWLINE,
     TOKEN_BACKLASH,
+    TOKEN_DOT,
+    TOKEN_FLOAT,
     TOKEN_EOF
 };
 
@@ -127,6 +129,10 @@ std::string typetostring(enum Tokentype TYPE)
         return "ATSYM";
     case TOKEN_ANDSYM:
         return "ANDSYM";
+    case TOKEN_FLOAT:
+        return "FLOAT";
+    case TOKEN_DOT:
+        return "DOT";
     default:
         return "UNKNOWN";
     }
@@ -147,7 +153,7 @@ class Lexer
             ctrl = false;
         }
         std::vector<std::string> keywords = {
-            "if", "else", "while", "for", "return", "class", "import", "pass", "break", "continue", "def","type", "true", "false","print", "page", "app", "view", "text", "img", "canvas" , "input", "state", "go", "stylesheet"
+            "if", "else", "while", "for", "return", "class", "import", "pass", "break", "continue", "def","type", "true", "false","print", "page", "app", "view", "text", "img", "canvas" , "input", "state", "go", "stylesheet", "to_int", "to_str", "to_float"
         };
         
         char advance()
@@ -221,13 +227,18 @@ class Lexer
 
         Token * tokenizeINT()
         {
-            std::stringstream buffer;
-            while (isdigit(current))
-            {
-                buffer << advance();
-            }
             Token * newtoken = new Token();
             newtoken->TYPE = TOKEN_INT;
+            std::stringstream buffer;
+            bool isfloat = false;
+            while (isdigit(current) || (current == '.' && !isfloat))
+            {
+                if (current == '.' && !isfloat) {
+                    newtoken->TYPE = TOKEN_FLOAT;
+                    isfloat = true;
+                }
+                buffer << advance();
+            }
             newtoken->value = buffer.str();
             newtoken->lineno = linenum;
             newtoken->charno = charnum - buffer.str().length();
@@ -334,6 +345,9 @@ class Lexer
                     case ')':
                     {tokens.push_back(tokenizespecial(TOKEN_RPAREN));
                     break;}
+                case '.':
+                        {tokens.push_back(tokenizespecial(TOKEN_DOT));
+                        break;}
                 case '"':
                         {tokens.push_back(tokenizeSTR(TOKEN_QUOTE));
                         break;}

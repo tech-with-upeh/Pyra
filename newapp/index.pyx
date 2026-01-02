@@ -1,4 +1,4 @@
-ht = "100px"
+/* ht = "100px"
 
 @stylesheet & uni {
     body = {
@@ -24,18 +24,39 @@ ht = "100px"
     }
 }
 
+def pr(a, b) {
+    return "as" + "kf"
+}
+
 page("Home Page", cls="body") {
     @state txt : "predef"
+    sh = to_int("we")
+    onmount() {
+        print(txt)
+        print("Mounted")
+    }
     view("Nav", cls="nav", onclick=() {
         print("hello")
     }) {
         text(txt)
     }
     text("another txt")
+    canvas("mycanvas", height=400, width=400)
 }
 
 page("about Page", route="/about") {
     view("nav") {
         text("My win", cls="mytx")
     }
-}
+} */
+
+
+sd = 13.44
+
+to_int("23")
+
+str = "1425"
+str = to_int(str)
+
+to_str(45)
+print(sd)

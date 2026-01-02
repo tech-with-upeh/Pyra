@@ -23,9 +23,9 @@ namespace fs = std::filesystem;
 string getProjectRoot(const string& root, bool useroot = false) {
     string file;
     if(useroot) {
-        file = root + "/pyra.config";
+        file = root + "/helios.config";
     } else {
-        file = "pyra.config";
+        file = "helios.config";
     }
     ifstream config(file);
     string line;
@@ -44,7 +44,7 @@ string getProjectRoot(const string& root, bool useroot = false) {
 }
 
 void saveProjectRoot(const string& root) {
-    ofstream config(root+ "/pyra.config");
+    ofstream config(root+ "/helios.config");
     config << "project_root=" << root << "\n";
 }
 
@@ -522,7 +522,7 @@ inline void renderPage(VPage& page) {
         js_setBodyAttr(key.c_str(), value.c_str());
     }
 })";
-            ofstream(root + "/web/pyra.web.config") << "# placeholder";
+            ofstream(root + "/web/helios.web.config") << "# placeholder";
             cout << "[web] Generated web folder and files.\n";
         } else if (target == "android") {
             fs::create_directory(root + "/android");
@@ -567,7 +567,7 @@ void builder() {
         cerr << "write failed\n";
         exit(1);
     }
-    cout << "[Pyra] Compiled Projects Successfully! [Pyra]\n";
+    cout << "[Helios] Compiled Projects Successfully! [Helios]\n";
 
     string cmd = "emcc web/generated.cpp -o web/main.js " 
         "-sEXPORTED_FUNCTIONS=\"['_main','_invokeVNodeCallback','_js_insertHTML','_js_setTitle','_malloc','_free', '_handleRoute']\" "
@@ -727,16 +727,12 @@ void cleanProject(const string& pname) {
         fs::remove("web/generated.cpp");
         cout << "[clean] cleaned project folder: " << root << endl;
     }
-    // if (fs::exists("pyra.config")) {
-    //     fs::remove("pyra.config");
-    //     cout << "[clean] Removed pyra.config\n";
-    // }
 }
 
  
 int main(int argc, char ** argv) {
     if (argc < 2) {
-        cout << "Usage: pyra.exe <command> [target]\n";
+        cout << "Usage: helios.exe <command> [target]\n";
         return 0;
     }
 

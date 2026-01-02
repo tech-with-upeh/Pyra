@@ -51,6 +51,10 @@ void printAST(AST_NODE* node, int depth = 0, const std::string& relation = "ROOT
         case NODE_CLS: std::cout << "CLASS"; break;
         case NODE_MEDIA_QUERY: std::cout << "MEDIA_QUERY"; break;
         case NODE_CANVAS: std::cout << "CANVAS"; break;
+        case NODE_TOSTR: std::cout << "TOSTRING"; break;
+        case NODE_TOINT: std::cout << "TOINT"; break;
+        case NODE_TOFLOAT: std::cout << "TOFLOAT"; break;
+        case NODE_FLOAT: std::cout << "FLOAT"; break;
         default: std::cout << "UNKNOWN"; break;
     }
 
