@@ -2,45 +2,40 @@ ht = "100px"
 
 @stylesheet & uni {
     body = {
-        "height": ht,
-        "width":"100px"
+        "height": "100vh",
+        "width":"100vw",
+        "background-color": "dark-grey"
     } 
-    btn = {
-        "height":"100px",
-        color: "red"
+    nav = {
+        "height":"0px",
+        "background-color": "red",
+        overflow: "hidden"
         } 
+    tx = {
+        color: "light-grey",
+        margin: "0px"
+    }
+    primarysec = {
+         color: "dark-grey",
+        margin: "0px"
+    }
     media("min-width: 600px") { 
-        btn {"height":"50px", color: "yellow"}
+        nav {"height":"100px", color: "yellow"}
     }
 }
-page("HOME PAGE", cls="body", route="/abt") {
-    vsr = 0
-    @state num : 0
-    @state mytext : "Click me and check console!"
-    view("mydiv", style={
-        "height": "50px",
-        "background-color": "green"
-    }, onclick=(num, mytext) {
-        num = num + 1
-        mytext = "Clicked!!"
-        print(num)
+
+page("Home Page", cls="body") {
+    @state txt : "predef"
+    view("Nav", cls="nav", onclick=() {
+        print("hello")
     }) {
-        text(mytext, style={
-            "text-align": "center",
-            "margin": "0px"
-        })
+        text(txt)
     }
-    view("countdiv", style={
-        "margin-top": "20px",
-        "font-size": "20px"
-    }) {
-        text('go to about', cls="btn", onclick=() {
-            go("/")
-        })
-        
-    } 
+    text("another txt")
 }
-page("about") {
-    inpage = "sdkd"
-    text("This is the Ho.", cls="btn")
-} 
+
+page("about Page", route="/about") {
+    view("nav") {
+        text("My win", cls="mytx")
+    }
+}

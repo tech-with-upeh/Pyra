@@ -13,20 +13,28 @@ auto page_1 = make_shared<VPage>();
 
 auto page_2 = make_shared<VPage>();
 int main() {
-	Router::add("/abt",page_1);
-	Router::add("/",page_2);
+	Router::add("/",page_1);
+	Router::add("/about",page_2);
     string ht = "100px";
 	string uni = R"(
 		.body{ 
-			height : )" +ht+ R"(;
-			width : 100px;
-		}	.btn{ 
-			height : 100px;
-			color : red;
+			height : 100vh;
+			width : 100vw;
+			background-color : dark-grey;
+		}	.nav{ 
+			height : 0px;
+			background-color : red;
+			overflow : hidden;
+		}	.tx{ 
+			color : light-grey;
+			margin : 0px;
+		}	.primarysec{ 
+			color : dark-grey;
+			margin : 0px;
 		}
 		@media only screen and (min-width: 600px) {
-				.btn{ 
-			height : 50px;
+				.nav{ 
+			height : 100px;
 			color : yellow;
 		}
 		}
@@ -34,53 +42,41 @@ int main() {
 	
 	page_1->builder = [&, uni, ht](VPage& page) {
 		page.addStyle(uni);
-		page.setTitle("HOME PAGE");
-		page.bodyAttrs["style"] = "background-color:black;padding:0px;margin:0px;color:white;";
+		page.setTitle("Home Page");
+		page.bodyAttrs["class"] = "body";
 
-		    int vsr = 0;
 		
-	auto num = make_shared<appstate::State<int>>("num",0);
-		
-	auto mytext = make_shared<appstate::State<string>>("mytext","Click me and check console!");
+	auto txt = make_shared<appstate::State<string>>("txt","predef");
 		
 	VNode view_1("div");
-	view_1.setAttr("id", "mydiv");
-	view_1.onClick([num, mytext]() {
-			num->set((num->get() + 1));
-			mytext->set("Clicked!!");
-			cout << num->get() << endl;
+	view_1.setAttr("id", "Nav");
+	view_1.setAttr("class",  "nav");
+	view_1.onClick([]() {
+			cout << "hello" << endl;
 		updateUI();	});
-	view_1.setAttr("style", "height:50px;background-color:green;");
 
-	VNode text_1("p",mytext->get());
-	text_1.setAttr("style", "text-align:center;margin:0px;");
+	VNode text_1("p",txt->get());
 
 	view_1.addChild(text_1);
 	page.addChild(view_1);
 		
-	VNode view_3("div");
-	view_3.setAttr("id", "countdiv");
-	view_3.setAttr("style", "margin-top:20px;font-size:20px;");
+	VNode text_3("p","another txt");
 
-	VNode text_3("p","go to about");
-	text_3.setAttr("class",  "btn");
-	text_3.onClick([]() {
-		Router::go("/");
-		updateUI();	});
-
-	view_3.addChild(text_3);
-	page.addChild(view_3);
+	page.addChild(text_3);
 		};
 	page_2->builder = [&, uni, ht](VPage& page) {
 		page.addStyle(uni);
-		page.setTitle("about");
+		page.setTitle("about Page");
 
-		    string inpage = "sdkd";
 		
-	VNode text_5("p","This is the Ho.");
-	text_5.setAttr("class",  "btn");
+	VNode view_4("div");
+	view_4.setAttr("id", "nav");
 
-	page.addChild(text_5);
+	VNode text_4("p","My win");
+	text_4.setAttr("class",  "mytx");
+
+	view_4.addChild(text_4);
+	page.addChild(view_4);
 		};
 	EM_ASM({
 		Module._handleRoute(allocateUTF8(window.location.pathname));

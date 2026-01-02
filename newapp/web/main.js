@@ -4670,18 +4670,14 @@ function checkIncomingModuleAPI() {
   ignoredModuleProp('fetchSettings');
 }
 var ASM_CONSTS = {
-  86188: ($0) => { document.body.style = allocateUTF8(""); document.body.innerHTML = UTF8ToString($0); },  
- 86276: ($0) => { document.title = UTF8ToString($0); },  
- 86315: ($0) => { if (!document.getElementById("__ink_styles")) { const style = document.createElement("style"); style.id = "__ink_styles"; style.innerHTML = UTF8ToString($0); document.head.appendChild(style); } },  
- 86513: ($0, $1) => { document.body.setAttribute(UTF8ToString($0), UTF8ToString($1)); },  
- 86581: () => { Module._handleRoute(allocateUTF8(window.location.pathname)); window.addEventListener("popstate", () => { Module._handleRoute(allocateUTF8(window.location.pathname)); }); },  
- 86755: ($0, $1) => { window.wasmState = window.wasmState || {}; if (window.wasmState[UTF8ToString($0)] === undefined) { window.wasmState[UTF8ToString($0)] = $1; } },  
- 86901: ($0, $1) => { window.wasmState = window.wasmState || {}; if (window.wasmState[UTF8ToString($0)] === undefined) { window.wasmState[UTF8ToString($0)] = UTF8ToString($1); } },  
- 87061: ($0, $1) => { window.wasmState = window.wasmState || {}; window.wasmState[UTF8ToString($0)] = $1; },  
- 87149: ($0) => { window.wasmState = window.wasmState || {}; var val = window.wasmState[UTF8ToString($0)]; return (val === undefined) ? 0 : val; },  
- 87280: ($0, $1) => { window.wasmState = window.wasmState || {}; window.wasmState[UTF8ToString($0)] = UTF8ToString($1); },  
- 87382: ($0) => { window.wasmState = window.wasmState || {}; var val = window.wasmState[UTF8ToString($0)]; if (val === undefined) { val = ""; } var length = lengthBytesUTF8(val) + 1; var buffer = _malloc(length); stringToUTF8(val, buffer, length); return buffer; },  
- 87631: ($0) => { history.pushState({}, "", UTF8ToString($0)); }
+  85900: ($0) => { document.body.style = allocateUTF8(""); document.body.innerHTML = UTF8ToString($0); },  
+ 85988: ($0) => { document.title = UTF8ToString($0); },  
+ 86027: ($0) => { if (!document.getElementById("__ink_styles")) { const style = document.createElement("style"); style.id = "__ink_styles"; style.innerHTML = UTF8ToString($0); document.head.appendChild(style); } },  
+ 86225: ($0, $1) => { document.body.setAttribute(UTF8ToString($0), UTF8ToString($1)); },  
+ 86293: ($0, $1) => { const id = UTF8ToString($0); if (!document.getElementById(id)) { document.body.insertAdjacentHTML("beforeend", UTF8ToString($1)); } },  
+ 86429: () => { Module._handleRoute(allocateUTF8(window.location.pathname)); window.addEventListener("popstate", () => { Module._handleRoute(allocateUTF8(window.location.pathname)); }); },  
+ 86603: ($0, $1) => { window.wasmState = window.wasmState || {}; if (window.wasmState[UTF8ToString($0)] === undefined) { window.wasmState[UTF8ToString($0)] = UTF8ToString($1); } },  
+ 86763: ($0) => { window.wasmState = window.wasmState || {}; var val = window.wasmState[UTF8ToString($0)]; if (val === undefined) { val = ""; } var length = lengthBytesUTF8(val) + 1; var buffer = _malloc(length); stringToUTF8(val, buffer, length); return buffer; }
 };
 
 // Imports from the Wasm binary.
@@ -4695,6 +4691,7 @@ var _allocateString = Module['_allocateString'] = makeInvalidEarlyAccess('_alloc
 var _malloc = Module['_malloc'] = makeInvalidEarlyAccess('_malloc');
 var _freeString = Module['_freeString'] = makeInvalidEarlyAccess('_freeString');
 var _free = Module['_free'] = makeInvalidEarlyAccess('_free');
+var _js_mountCanvas = Module['_js_mountCanvas'] = makeInvalidEarlyAccess('_js_mountCanvas');
 var _main = Module['_main'] = makeInvalidEarlyAccess('_main');
 var _fflush = makeInvalidEarlyAccess('_fflush');
 var _strerror = makeInvalidEarlyAccess('_strerror');
@@ -4720,6 +4717,7 @@ function assignWasmExports(wasmExports) {
   assert(typeof wasmExports['malloc'] != 'undefined', 'missing Wasm export: malloc');
   assert(typeof wasmExports['freeString'] != 'undefined', 'missing Wasm export: freeString');
   assert(typeof wasmExports['free'] != 'undefined', 'missing Wasm export: free');
+  assert(typeof wasmExports['js_mountCanvas'] != 'undefined', 'missing Wasm export: js_mountCanvas');
   assert(typeof wasmExports['main'] != 'undefined', 'missing Wasm export: main');
   assert(typeof wasmExports['fflush'] != 'undefined', 'missing Wasm export: fflush');
   assert(typeof wasmExports['strerror'] != 'undefined', 'missing Wasm export: strerror');
@@ -4742,6 +4740,7 @@ function assignWasmExports(wasmExports) {
   _malloc = Module['_malloc'] = createExportWrapper('malloc', 1);
   _freeString = Module['_freeString'] = createExportWrapper('freeString', 1);
   _free = Module['_free'] = createExportWrapper('free', 1);
+  _js_mountCanvas = Module['_js_mountCanvas'] = createExportWrapper('js_mountCanvas', 2);
   _main = Module['_main'] = createExportWrapper('main', 2);
   _fflush = createExportWrapper('fflush', 1);
   _strerror = createExportWrapper('strerror', 1);

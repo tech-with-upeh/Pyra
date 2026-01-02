@@ -50,6 +50,7 @@ void printAST(AST_NODE* node, int depth = 0, const std::string& relation = "ROOT
         case NODE_STYLESHEET: std::cout << "STYLESHEET"; break;
         case NODE_CLS: std::cout << "CLASS"; break;
         case NODE_MEDIA_QUERY: std::cout << "MEDIA_QUERY"; break;
+        case NODE_CANVAS: std::cout << "CANVAS"; break;
         default: std::cout << "UNKNOWN"; break;
     }
 

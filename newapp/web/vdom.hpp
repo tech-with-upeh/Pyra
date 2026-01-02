@@ -133,7 +133,19 @@ std::unordered_map<std::string, std::function<void()>> CallbackRegistry::callbac
 int CallbackRegistry::nextId = 0;
 
 // -------------------- VNode --------------------
+enum class VNodeType {
+    NORMAL,
+    CANVAS
+};
+
 struct VNode {
+    VNodeType type = VNodeType::NORMAL;
+
+    // canvas only
+    int width = 300;
+    int height = 150;
+    std::string canvasid = "main-canvas";
+
     std::string tag;
     std::string text;
     std::vector<VNode> children;
@@ -151,6 +163,9 @@ struct VNode {
     }
     
     VNode& setAttr(const std::string& key, const std::string& value) {
+        if(key == "id" || type == VNodeType::CANVAS) {
+            canvasid = value;
+        }
         attrs[key] = value;
         return *this;
     }
@@ -174,7 +189,7 @@ struct VPage {
     std::string stylesheet;
 
     std::function<void(VPage&)> builder; 
-
+    std::vector<std::function<void()>> onMount_list;
     
     // Helper methods
     VPage& setTitle(const std::string& newTitle) {
@@ -183,7 +198,6 @@ struct VPage {
     }
 
     VPage& addStyle(const std::string& newstylesheet) {
-        std::cout << "adding style" << std::endl;
         stylesheet = newstylesheet;
         return *this;
     }
@@ -195,6 +209,7 @@ struct VPage {
     
     VPage& clearChildren() {
         children.clear();
+        onMount_list.clear();
         return *this;
     }
 
@@ -208,6 +223,47 @@ struct VPage {
     void render() {
         rebuild();
         renderPage(*this);
+
+    }
+    void onMount(std::function<void()> fn) {
+        onMount_list.push_back(fn);
+    }
+};
+
+
+class Canvas2D {
+    std::string id;
+public:
+    Canvas2D(std::string canvasId) : id(canvasId) {}
+
+    void clear() {
+        EM_ASM({
+            if (document.getElementById($0)) {
+                const ctx = document.getElementById(UTF8ToString($0)).getContext("2d");
+                ctx.clearRect(0, 0, ctx.canvas.width, ctx.canvas.height);
+            }
+            
+        }, id.c_str());
+    }
+
+    void rect(int x, int y, int w, int h) {
+        EM_ASM({
+             if (document.getElementById(UTF8ToString($0))) {
+                
+            const ctx = document.getElementById(UTF8ToString($0)).getContext("2d");
+            ctx.fillRect($1, $2, $3, $4);
+             }
+        }, id.c_str(), x, y, w, h);
+    }
+
+    void setFill(const std::string& color) {
+        EM_ASM({
+             if (document.getElementById(UTF8ToString($0))) {
+               
+            const ctx = document.getElementById(UTF8ToString($0)).getContext("2d");
+            ctx.fillStyle = UTF8ToString($1);
+             }
+        }, id.c_str(), color.c_str());
     }
 };
 
@@ -329,8 +385,6 @@ extern "C" {
                 document.head.appendChild(style);
                 }
             }, css);
-        }else {
-            std::cout << "Empty css" << std::endl;
         }
     }
 
@@ -355,11 +409,33 @@ extern "C" {
     void freeString(char* str) {
         free(str);
     }
+
+    EMSCRIPTEN_KEEPALIVE
+    void js_mountCanvas(const char* id, const char* html) {
+        EM_ASM({
+            const id = UTF8ToString($0);
+            if (!document.getElementById(id)) {
+                document.body.insertAdjacentHTML("beforeend", UTF8ToString($1));
+            }
+        }, id, html);
+    }
 }
 
 // -------------------- Render VNode to HTML --------------------
 inline std::string renderToHTML(const VNode& node) {
     std::ostringstream oss;
+    if (node.type == VNodeType::CANVAS) {
+        oss << "<canvas"
+            << " width=\"" << node.width << "\""
+            << " height=\"" << node.height << "\"";
+
+        for (const auto& [k, v] : node.attrs) {
+            oss << " " << k << "=\"" << v << "\"";
+        }
+
+        oss << "></canvas>";
+        return oss.str();
+    }
     oss << "<" << node.tag;
 
     if(node.attrs.find("id") != node.attrs.end()) {
@@ -397,17 +473,30 @@ inline void renderPage(VPage& page) {
     GlobalState::setCurrentPage(&page);
     
     std::ostringstream html;
+    std::unordered_map<std::string, std::string> canvas_list;
     for(auto& node : page.children) {
         bindOnClick(node);
+        if (node.type == VNodeType::CANVAS) {
+            canvas_list[node.canvasid] = renderToHTML(node);
+            continue;
+        }
         html << renderToHTML(node);
     }
 
     js_insertHTML(html.str().c_str());
     js_setTitle(page.title.c_str());
     js_insertCSS(page.stylesheet.c_str());
+    if (!canvas_list.empty()) {
+        for (auto &i : canvas_list) {
+            js_mountCanvas(i.first.c_str(), i.second.c_str());
+        }
+    }
 
     // Apply body attributes
     for(const auto& [key, value] : page.bodyAttrs) {
         js_setBodyAttr(key.c_str(), value.c_str());
+    }
+    for (auto& fn : page.onMount_list) {
+        fn();
     }
 }

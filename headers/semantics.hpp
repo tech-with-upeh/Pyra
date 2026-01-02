@@ -235,6 +235,7 @@ private:
             }
 
             case NODE_TEXT:
+            case NODE_CANVAS:
             case NODE_IMAGE:
             case NODE_VIEW: {
                 if (node->CHILD) {

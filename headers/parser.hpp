@@ -40,6 +40,7 @@ enum NODE_TYPE {
     NODE_TEXT,
     NODE_IMAGE,
     NODE_INPUT,
+    NODE_CANVAS,
     NODE_ARGS,
 
     //framework logic
@@ -100,6 +101,7 @@ string nodetostr(enum NODE_TYPE tYPE) {
         case NODE_STYLESHEET: return "STYLESHEET"; break;
         case NODE_CLS: return "CLASS"; break;
         case NODE_MEDIA_QUERY: return "MEDIA_QUERY"; break;
+        case NODE_CANVAS: return "CANVAS"; break;
         default: return "UNKNOWN"; break;
     }
 }
@@ -834,7 +836,7 @@ public:
     
 
     // ---------- FUNCTION DECLARATION ----------
-    AST_NODE *parseFunctionDecl(bool callback=false) {
+    AST_NODE *parseFunctionDecl(bool callback=false, string *funcname = nullptr) {
        AST_NODE *funcNode = new AST_NODE();
        funcNode->TYPE = NODE_FUNCTION_DECL;
         if (!callback) {
@@ -843,12 +845,11 @@ public:
                 parserError("Expected function name after 'def'"); 
             }
             string *funcName = &current->value;
-            proceed(TOKEN_ID);
-
-            
+            proceed(TOKEN_ID);  
             funcNode->value = funcName;
-        } 
-        
+        } else {
+        funcNode->value = funcname;
+        }        
 
         proceed(TOKEN_LPAREN);
         AST_NODE *args = new AST_NODE();
@@ -1085,6 +1086,9 @@ public:
             funcNode->charno = current->charno;
 
         proceed(TOKEN_LPAREN);
+        if (current->TYPE == TOKEN_RPAREN) {
+            parserError("One Argument Required!");
+        }
         if (current->TYPE != TOKEN_RPAREN) {
             AST_NODE *args = new AST_NODE();
             args->TYPE = NODE_ARGS;
@@ -1114,12 +1118,13 @@ public:
                 }
                 
             } else {
-                parserError("Unexpected in View Call : "+ current->value);
+                parserError("Unexpected in" + nodetostr(typw) +"Call : "+ current->value);
             }
 
 
             args->SUB_STATEMENTS.push_back(param);
-            
+            bool h = false;
+            bool w = false;
 
            while (current->TYPE == TOKEN_COMMA) {
                 proceed(TOKEN_COMMA);
@@ -1127,7 +1132,7 @@ public:
                 // Only allow certain parameter names
                 std::string paramName = current->value;
                 string* parammem = &current->value;
-                if (paramName != "style" && paramName != "cls" && paramName != "onclick" && paramName != "onlongpress" && paramName != "id") {
+                if (paramName != "style" && paramName != "cls" && paramName != "onclick" && paramName != "onlongpress" && paramName != "id" && paramName != "height" && paramName != "width") {
                     parserError("Unexpected parameter: " + paramName);
                 }
                 AST_NODE *param = new AST_NODE();
@@ -1277,11 +1282,66 @@ public:
                     } else {
                         parserError(paramName + " must be a function identifier or inline function");
                     }
+                } 
+                if(nodetostr(typw) == "CANVAS") {
+                    if (paramName == "height") {
+                        h = true;
+                        AST_NODE *heightNode = new AST_NODE();
+                        if (current->TYPE == TOKEN_INT) {
+                            heightNode->TYPE = NODE_INT;
+                            heightNode->value = &current->value;
+                            proceed(TOKEN_INT);
+                        } else if (current->TYPE == TOKEN_ID) {
+                            heightNode->TYPE = NODE_VARIABLE;
+                            heightNode->value = &current->value;
+                            proceed(TOKEN_ID);
+                        } else if (current->TYPE == TOKEN_STRING) {
+                            heightNode->TYPE = NODE_STRING;
+                            heightNode->value = &current->value;
+                            proceed(TOKEN_STRING);
+                        }else {
+                            parserError("Height must be a int or identifier, Worst case a string!");
+                        }
+                        heightNode->lineno = current->lineno;
+                        heightNode->sourceLine = current->sourceLine;
+                        heightNode->extra = current->extra;
+                        heightNode->charno = current->charno;
+                        param->CHILD = heightNode;
+                    }
+                    if (paramName == "width") {
+                        w = true;
+                        AST_NODE *widthNode = new AST_NODE();
+                        if (current->TYPE == TOKEN_INT) {
+                            widthNode->TYPE = NODE_INT;
+                            widthNode->value = &current->value;
+                            proceed(TOKEN_INT);
+                        } else if (current->TYPE == TOKEN_ID) {
+                            widthNode->TYPE = NODE_VARIABLE;
+                            widthNode->value = &current->value;
+                            proceed(TOKEN_ID);
+                        } else if (current->TYPE == TOKEN_STRING) {
+                            widthNode->TYPE = NODE_STRING;
+                            widthNode->value = &current->value;
+                            proceed(TOKEN_STRING);
+                        }
+                        else {
+                            parserError("width must be a Number or identifier");
+                        }
+                        widthNode->lineno = current->lineno;
+                        widthNode->sourceLine = current->sourceLine;
+                        widthNode->extra = current->extra;
+                        widthNode->charno = current->charno;
+                        param->CHILD = widthNode;
+                    }
                 }
-
-
                 args->SUB_STATEMENTS.push_back(param);
             }
+            if(nodetostr(typw) == "CANVAS") {
+                 if (!h && !w) {
+                    parserError("Height And Width Required for canvas");
+                }
+            }
+           
 
             funcNode->CHILD = args;
         }
@@ -1316,115 +1376,115 @@ public:
 
 
     AST_NODE* parseStylesheet() {
-    AST_NODE* styleNode = new AST_NODE();
-    styleNode->TYPE = NODE_STYLESHEET;
+        AST_NODE* styleNode = new AST_NODE();
+        styleNode->TYPE = NODE_STYLESHEET;
 
-    proceed(TOKEN_KEYWORD); // "stylesheet"
-    if (current->TYPE == TOKEN_ANDSYM) {
-        styleNode->CHILD = new AST_NODE();
-        styleNode->CHILD->TYPE = NODE_BOOL;
-        styleNode->CHILD->value = new string("true");
-        styleNode->CHILD->lineno = current->lineno;
-            styleNode->CHILD->sourceLine = current->sourceLine;
-           styleNode->CHILD->extra = current->extra;
-            styleNode->CHILD->charno = current->charno;
-        proceed(TOKEN_ANDSYM);
-    }
-    if (current->TYPE != TOKEN_ID) {
-        parserError("Expected stylesheet name after 'stylesheet'");
-    }
-    styleNode->value = &current->value;
-    proceed(TOKEN_ID);
-    
-    proceed(TOKEN_LBRACE);
+        proceed(TOKEN_KEYWORD); // "stylesheet"
+        if (current->TYPE == TOKEN_ANDSYM) {
+            styleNode->CHILD = new AST_NODE();
+            styleNode->CHILD->TYPE = NODE_BOOL;
+            styleNode->CHILD->value = new string("true");
+            styleNode->CHILD->lineno = current->lineno;
+                styleNode->CHILD->sourceLine = current->sourceLine;
+            styleNode->CHILD->extra = current->extra;
+                styleNode->CHILD->charno = current->charno;
+            proceed(TOKEN_ANDSYM);
+        }
+        if (current->TYPE != TOKEN_ID) {
+            parserError("Expected stylesheet name after 'stylesheet'");
+        }
+        styleNode->value = &current->value;
+        proceed(TOKEN_ID);
+        
+        proceed(TOKEN_LBRACE);
 
-    while (current->TYPE != TOKEN_RBRACE && current->TYPE != TOKEN_EOF) {
-        // Skip newlines
-        while (current->TYPE == TOKEN_NEWLINE)
-            proceed(TOKEN_NEWLINE);
+        while (current->TYPE != TOKEN_RBRACE && current->TYPE != TOKEN_EOF) {
+            // Skip newlines
+            while (current->TYPE == TOKEN_NEWLINE)
+                proceed(TOKEN_NEWLINE);
 
-        if (current->TYPE == TOKEN_RBRACE)
-            break;
+            if (current->TYPE == TOKEN_RBRACE)
+                break;
 
-        // Top-level identifier
-        if (current->TYPE == TOKEN_ID) {
-            string selector = current->value;
-           
+            // Top-level identifier
+            if (current->TYPE == TOKEN_ID) {
+                string selector = current->value;
+            
 
-            if (selector == "media") {
-                // Media query node
-                 proceed(TOKEN_ID);
-                AST_NODE* mediaNode = new AST_NODE();
-                mediaNode->TYPE = NODE_MEDIA_QUERY;
-                mediaNode->lineno = current->lineno;
-                mediaNode->sourceLine = current->sourceLine;
-                mediaNode->extra = current->extra;
-                mediaNode->charno = current->charno;
+                if (selector == "media") {
+                    // Media query node
+                    proceed(TOKEN_ID);
+                    AST_NODE* mediaNode = new AST_NODE();
+                    mediaNode->TYPE = NODE_MEDIA_QUERY;
+                    mediaNode->lineno = current->lineno;
+                    mediaNode->sourceLine = current->sourceLine;
+                    mediaNode->extra = current->extra;
+                    mediaNode->charno = current->charno;
 
-                proceed(TOKEN_LPAREN);
-                mediaNode->CHILD = parseComparison(); // the query string
-                proceed(TOKEN_RPAREN);
+                    proceed(TOKEN_LPAREN);
+                    mediaNode->CHILD = parseComparison(); // the query string
+                    proceed(TOKEN_RPAREN);
 
-                proceed(TOKEN_LBRACE);
-                while (current->TYPE != TOKEN_RBRACE && current->TYPE != TOKEN_EOF) {
-                    while (current->TYPE == TOKEN_NEWLINE)
-                        proceed(TOKEN_NEWLINE);
-                    
-                    if (current->TYPE == TOKEN_RBRACE)
-                        break;
+                    proceed(TOKEN_LBRACE);
+                    while (current->TYPE != TOKEN_RBRACE && current->TYPE != TOKEN_EOF) {
+                        while (current->TYPE == TOKEN_NEWLINE)
+                            proceed(TOKEN_NEWLINE);
+                        
+                        if (current->TYPE == TOKEN_RBRACE)
+                            break;
 
-                    if (current->TYPE == TOKEN_ID) {
-                        AST_NODE* selectorNode = new AST_NODE();
-                        selectorNode->TYPE = NODE_CLS;
-                        selectorNode->value = &current->value;
-                        selectorNode->lineno = current->lineno;
-                        selectorNode->sourceLine = current->sourceLine;
-                        selectorNode->extra = current->extra;
-                        selectorNode->charno = current->charno;
+                        if (current->TYPE == TOKEN_ID) {
+                            AST_NODE* selectorNode = new AST_NODE();
+                            selectorNode->TYPE = NODE_CLS;
+                            selectorNode->value = &current->value;
+                            selectorNode->lineno = current->lineno;
+                            selectorNode->sourceLine = current->sourceLine;
+                            selectorNode->extra = current->extra;
+                            selectorNode->charno = current->charno;
 
-                        string innerSelector = current->value;
-                        proceed(TOKEN_ID);
-                        selectorNode->CHILD = parseDict(true);
+                            string innerSelector = current->value;
+                            proceed(TOKEN_ID);
+                            selectorNode->CHILD = parseDict(true);
 
-                        mediaNode->SUB_STATEMENTS.push_back(selectorNode);
-                    } else {
-                        parserError("Expected selector identifier inside media query, got: " + current->value);
+                            mediaNode->SUB_STATEMENTS.push_back(selectorNode);
+                        } else {
+                            parserError("Expected selector identifier inside media query, got: " + current->value);
+                        }
+
+                        while (current->TYPE == TOKEN_NEWLINE)
+                            proceed(TOKEN_NEWLINE);
                     }
+                    proceed(TOKEN_RBRACE);
+                    styleNode->SUB_STATEMENTS.push_back(mediaNode);
 
-                    while (current->TYPE == TOKEN_NEWLINE)
-                        proceed(TOKEN_NEWLINE);
+                } else {
+                    // Normal selector
+                    AST_NODE* selectorNode = new AST_NODE();
+                    selectorNode->TYPE = NODE_CLS;
+                    selectorNode->value = &current->value;
+                    selectorNode->lineno = current->lineno;
+                    selectorNode->sourceLine = current->sourceLine;
+                    selectorNode->extra = current->extra;
+                    selectorNode->charno = current->charno;
+                    proceed(TOKEN_ID);
+                    proceed(TOKEN_EQ);
+                    selectorNode->CHILD = parseDict(true);
+                    styleNode->SUB_STATEMENTS.push_back(selectorNode);
                 }
-                proceed(TOKEN_RBRACE);
-                styleNode->SUB_STATEMENTS.push_back(mediaNode);
-
             } else {
-                // Normal selector
-                AST_NODE* selectorNode = new AST_NODE();
-                selectorNode->TYPE = NODE_CLS;
-                selectorNode->value = &current->value;
-                selectorNode->lineno = current->lineno;
-                selectorNode->sourceLine = current->sourceLine;
-                selectorNode->extra = current->extra;
-                selectorNode->charno = current->charno;
-                proceed(TOKEN_ID);
-                proceed(TOKEN_EQ);
-                selectorNode->CHILD = parseDict(true);
-                styleNode->SUB_STATEMENTS.push_back(selectorNode);
+                parserError("Expected selector or 'media', got: " + current->value);
             }
-        } else {
-            parserError("Expected selector or 'media', got: " + current->value);
+
+            // Optional comma between selectors
+            if (current->TYPE == TOKEN_COMMA)
+                proceed(TOKEN_COMMA);
+
+            while (current->TYPE == TOKEN_NEWLINE)
+                proceed(TOKEN_NEWLINE);
         }
 
-        // Optional comma between selectors
-        if (current->TYPE == TOKEN_COMMA)
-            proceed(TOKEN_COMMA);
-
-        while (current->TYPE == TOKEN_NEWLINE)
-            proceed(TOKEN_NEWLINE);
-    }
-
-    proceed(TOKEN_RBRACE);
-    return styleNode;
+        proceed(TOKEN_RBRACE);
+        return styleNode;
 }
 
 
@@ -1480,6 +1540,8 @@ public:
                 return parseView(NODE_VIEW);
             } else if (current->value == "text") {
                 return parseView(NODE_TEXT);
+            } else if (current->value == "canvas") {
+                return parseView(NODE_CANVAS);
             } else if (current->value == "go") {
                 string *funcIdent = &current->value;
                 proceed(current->TYPE);
@@ -1551,8 +1613,19 @@ public:
 
     // ---------- Generic Statement ----------
     AST_NODE *parseStatement(bool ispage = false) {
-        if (current->TYPE == TOKEN_ID)
+        if (current->TYPE == TOKEN_ID) {
+            if(current->value == "onmount") {
+                cout << "FoUNDDDD";
+                string *funcname = &current->value;
+                proceed(current->TYPE);
+                if(!ispage) {
+                    parserError("Onmount life cycle can only be called from a Page ");
+                }
+                return parseFunctionDecl(true, funcname);
+            }
+            
             return parseID();
+        }
         else if (current->TYPE == TOKEN_ATSYM) {
             if(ispage == true) {
                 
@@ -1587,7 +1660,7 @@ public:
                     {
                         endofcomment = true;
                     }
-                    
+                    return parseFunctionDecl(true);
                 }
                 
                 proceed(current->TYPE);
