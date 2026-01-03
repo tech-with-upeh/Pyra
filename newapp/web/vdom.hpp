@@ -246,24 +246,157 @@ public:
         }, id.c_str());
     }
 
-    void rect(int x, int y, int w, int h) {
-        EM_ASM({
-             if (document.getElementById(UTF8ToString($0))) {
+    // void rect(size_t x, size_t y, size_t w, size_t h) {
+    //     EM_ASM({
+    //          if (document.getElementById(UTF8ToString($0))) {
                 
-            const ctx = document.getElementById(UTF8ToString($0)).getContext("2d");
+    //         const ctx = document.getElementById(UTF8ToString($0)).getContext("2d");
+    //         ctx.fillRect($1, $2, $3, $4);
+    //          }
+    //     }, id.c_str(), x, y, w, h);
+    // }
+
+    // void setFill(const std::string& color) {
+    //     EM_ASM({
+    //          if (document.getElementById(UTF8ToString($0))) {
+               
+    //         const ctx = document.getElementById(UTF8ToString($0)).getContext("2d");
+    //         ctx.fillStyle = UTF8ToString($1);
+    //          }
+    //     }, id.c_str(), color.c_str());
+    // }
+
+    // if i get lost
+    
+    void setFill(const std::string& color) {
+        EM_ASM({
+            const ctx = document.getElementById(UTF8ToString($0))?.getContext("2d");
+            if (!ctx) return;
+            ctx.fillStyle = UTF8ToString($1);
+        }, id.c_str(), color.c_str());
+    }
+
+    void setStroke(const std::string& color) {
+        EM_ASM({
+            const ctx = document.getElementById(UTF8ToString($0))?.getContext("2d");
+            if (!ctx) return;
+            ctx.strokeStyle = UTF8ToString($1);
+        }, id.c_str(), color.c_str());
+    }
+
+    void lineWidth(size_t w) {
+        EM_ASM({
+            const ctx = document.getElementById(UTF8ToString($0))?.getContext("2d");
+            if (!ctx) return;
+            ctx.lineWidth = $1;
+        }, id.c_str(), w);
+    }
+
+    void alpha(double a) {
+        EM_ASM({
+            const ctx = document.getElementById(UTF8ToString($0))?.getContext("2d");
+            if (!ctx) return;
+            ctx.globalAlpha = $1;
+        }, id.c_str(), a);
+    }
+
+    // ─────────────────────────────
+    // Shapes
+    // ─────────────────────────────
+
+    void rect(size_t x, size_t y, size_t w, size_t h) {
+        EM_ASM({
+            const ctx = document.getElementById(UTF8ToString($0))?.getContext("2d");
+            if (!ctx) return;
             ctx.fillRect($1, $2, $3, $4);
-             }
         }, id.c_str(), x, y, w, h);
     }
 
-    void setFill(const std::string& color) {
+    void strokeRect(size_t x, size_t y, size_t w, size_t h) {
         EM_ASM({
-             if (document.getElementById(UTF8ToString($0))) {
-               
-            const ctx = document.getElementById(UTF8ToString($0)).getContext("2d");
-            ctx.fillStyle = UTF8ToString($1);
-             }
-        }, id.c_str(), color.c_str());
+            const ctx = document.getElementById(UTF8ToString($0))?.getContext("2d");
+            if (!ctx) return;
+            ctx.strokeRect($1, $2, $3, $4);
+        }, id.c_str(), x, y, w, h);
+    }
+
+    void line(size_t x1, size_t y1, size_t x2, size_t y2) {
+        EM_ASM({
+            const ctx = document.getElementById(UTF8ToString($0))?.getContext("2d");
+            if (!ctx) return;
+            ctx.beginPath();
+            ctx.moveTo($1, $2);
+            ctx.lineTo($3, $4);
+            ctx.stroke();
+        }, id.c_str(), x1, y1, x2, y2);
+    }
+
+    void circle(size_t x, size_t y, size_t r) {
+        EM_ASM({
+            const ctx = document.getElementById(UTF8ToString($0))?.getContext("2d");
+            if (!ctx) return;
+            ctx.beginPath();
+            ctx.arc($1, $2, $3, 0, Math.PI * 2);
+            ctx.fill();
+        }, id.c_str(), x, y, r);
+    }
+
+    void strokeCircle(size_t x, size_t y, size_t r) {
+        EM_ASM({
+            const ctx = document.getElementById(UTF8ToString($0))?.getContext("2d");
+            if (!ctx) return;
+            ctx.beginPath();
+            ctx.arc($1, $2, $3, 0, Math.PI * 2);
+            ctx.stroke();
+        }, id.c_str(), x, y, r);
+    }
+
+    // ─────────────────────────────
+    // Text
+    // ─────────────────────────────
+
+    void font(const std::string& f) {
+        EM_ASM({
+            const ctx = document.getElementById(UTF8ToString($0))?.getContext("2d");
+            if (!ctx) return;
+            ctx.font = UTF8ToString($1);
+        }, id.c_str(), f.c_str());
+    }
+
+    void text(const std::string& t, size_t x, size_t y) {
+        EM_ASM({
+            const ctx = document.getElementById(UTF8ToString($0))?.getContext("2d");
+            if (!ctx) return;
+            ctx.fillText(UTF8ToString($1), $2, $3);
+        }, id.c_str(), t.c_str(), x, y);
+    }
+
+    // ─────────────────────────────
+    // Transforms
+    // ─────────────────────────────
+
+    void move(size_t x, size_t y) {
+        EM_ASM({
+            const ctx = document.getElementById(UTF8ToString($0))?.getContext("2d");
+            if (!ctx) return;
+            ctx.translate($1, $2);
+        }, id.c_str(), x, y);
+    }
+
+    void rotate(double r) {
+        EM_ASM({
+            const ctx = document.getElementById(UTF8ToString($0))?.getContext("2d");
+            if (!ctx) return;
+            ctx.rotate($1);
+        }, id.c_str(), r);
+    }
+
+    void scale(double x, double y) {
+        EM_ASM({
+            const ctx = document.getElementById(UTF8ToString($0))?.getContext("2d");
+            if (!ctx) return;
+            ctx.scale($1, $2);
+        }, id.c_str(), x, y);
     }
 };
 

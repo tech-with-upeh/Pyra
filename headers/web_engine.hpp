@@ -35,6 +35,12 @@ class WebEngine {
                 return "string";
             case NODE_DICT:
                 return "unordered_map<string,string>";
+            case NODE_TOFLOAT:
+                return "float";
+            case NODE_TOINT:
+                return "int";
+            case NODE_TOSTR:
+                return "string";
             default:
                 cerr << "Error unknown Type\n";
                 break;
@@ -112,6 +118,7 @@ class WebEngine {
             switch (p->TYPE) {
                 case NODE_STRING:
                     return "string(" + cpp_literal(*(p->value)) + ")";
+                case NODE_FLOAT:
                 case NODE_INT:
                     return *(p->value);
                 case NODE_VARIABLE:
@@ -145,9 +152,7 @@ class WebEngine {
                     return "(" + operand + " " + op + " " + operand + ")";
                 }
                 default:
-                    // fallback: try to use value if present
-                    if (p->value) return *(p->value);
-                    return "/*expr_err*/";
+                    return MakeConversion(p, p->TYPE, false);
             }
         }
 
@@ -468,6 +473,60 @@ class WebEngine {
             return ss.str();
         }
 
+        string MakeConversion(AST_NODE *p, NODE_TYPE type, bool isroot = false) {
+            switch (type) {
+                case NODE_TOSTR: {
+                    stringstream ss;
+                    ss << "to_string(";
+                    ss << exprForNode(p->CHILD);
+                    ss << ")";
+                    if(isroot) {
+                        ss << ";";
+                    }
+                    return ss.str();
+                }
+                case NODE_TOINT: {
+                    stringstream ss;
+                    ss << "stoi(";
+                    ss << exprForNode(p->CHILD);
+                    ss << ")";
+                    if(isroot) {
+                        ss << ";";
+                    }
+                    return ss.str();
+                }
+                case NODE_TOFLOAT: {
+                    stringstream ss;
+                    ss << "stof(";
+                    ss << exprForNode(p->CHILD);
+                    ss << ")";
+                    if(isroot) {
+                        ss << ";";
+                    }
+                    return ss.str();
+                }
+                default:
+                    return "";
+            }
+            return "";
+        }
+
+        string MakeDraw(AST_NODE *p,bool isroot=true, string parent="root") {
+            stringstream ss;
+            if (isroot) {
+                // Canvas2D ctx("id");
+                ss << "Canvas2D ";
+                ss << parent << *(p->CHILD->SUB_STATEMENTS[0]->value) << idcount;
+                ss << "(";
+                ss << HandleAst(p->CHILD->SUB_STATEMENTS[0]);
+                ss << ");";
+            } else {
+                ss << "(";
+                ss << HandleAst(p->CHILD->SUB_STATEMENTS[0]);
+                ss << ");";  
+            }
+            return ss.str();
+        }
         string HandleAst(AST_NODE *p, string parent = "root", bool funcdecl=false, bool fromui = true) { 
             if (!p) return "";
              switch (p->TYPE) {
@@ -561,6 +620,12 @@ class WebEngine {
                                     break;
                                 }
                                 return MakeElement(p->CHILD, "root", el, eltype, true);
+                            } else if (dtype == NODE_TOINT || dtype == NODE_TOFLOAT || dtype == NODE_TOSTR) {
+                                return MakeConversion(p, dtype, false);
+                            } else if (dtype == NODE_DRAW) {
+                                stringstream ss;
+                                ss << "Canvas2D " << *(p->value) << MakeDraw(p->CHILD, false, parent);
+                                return ss.str();
                             }
                             else {
                                 // simple assignment: type name = expr;
@@ -581,7 +646,7 @@ class WebEngine {
                     if (p->CHILD->TYPE == NODE_VARIABLE)
                     {
                         stringstream ss;
-                        ss << "\tcout << " << HandleAst(p->CHILD, parent, true) << " << endl;";
+                        ss << "cout << " << HandleAst(p->CHILD, parent, true) << " << endl;";
                         return  ss.str();
                     }
                     else
@@ -741,9 +806,9 @@ class WebEngine {
                         }
                         ss << "]() {\n";
                         for (auto &stmt : p->SUB_STATEMENTS) {
-                            ss << "\t" << HandleAst(stmt, parent) << "\n";
+                            ss << "\t\t\t" << HandleAst(stmt, parent) << "\n";
                         }
-                        ss << "\t});\n";
+                        ss << "\t\t});\n";
                         return ss.str();
                     }
                     stringstream ss;
@@ -784,19 +849,37 @@ class WebEngine {
                     filebuffer << tmpl.str() << ftype << " " << ss.str();
                     return "";
                 }
+                case NODE_FUNCTION_CALL: {
+                    stringstream ss;
+                    ss << *(p->value) << "(";
+                    if (!p->SUB_STATEMENTS.empty()) {
+                        for (size_t i = 0; i < p->SUB_STATEMENTS.size(); ++i) {
+                            ss << exprForNode(p->SUB_STATEMENTS[i]);
+                            if (i < p->SUB_STATEMENTS.size() - 1) {
+                                ss << ",";
+                            }
+                        }
+                    }
+                    ss << ");";
+                    return ss.str();
+                }
                 case NODE_TOFLOAT: {
-                    string expr = exprForNode(p->CHILD);
                     // static_cast<float>(integerValue);
-                    return "stof(" + expr + ")";
-
+                    return MakeConversion(p, NODE_TOFLOAT, true);
                 }
                 case NODE_TOINT: {
-                    string expr = exprForNode(p->CHILD);
-                    return "stoi(" + expr + ")";
+                    return MakeConversion(p, NODE_TOINT, true);
                 }
                 case NODE_TOSTR: {
-                    string expr = exprForNode(p->CHILD);
-                    return "to_string(" + expr + ");";
+                    return MakeConversion(p, NODE_TOSTR, true);
+                }
+                case NODE_DRAW: {
+                    return MakeDraw(p, true, parent);
+                }
+                case NODE_INSTANCE: {
+                    stringstream ss;
+                    ss << *(p->value) << "." << HandleAst(p->CHILD,parent,funcdecl, fromui);
+                    return ss.str();
                 }
                  default:
                     return "";

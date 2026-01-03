@@ -5,6 +5,7 @@
 #include <vector>
 #include <string>
 #include <cctype>
+#include <regex>
 
 using namespace std;
  
@@ -53,7 +54,9 @@ enum NODE_TYPE {
     NODE_TOSTR,
     NODE_TOINT,
     NODE_TOFLOAT,
-    NODE_FLOAT
+    NODE_FLOAT,
+    NODE_DRAW,
+    NODE_INSTANCE
 };
 
 struct AST_NODE {
@@ -110,6 +113,7 @@ string nodetostr(enum NODE_TYPE tYPE) {
         case NODE_TOINT: return "TOINT"; break;
         case NODE_TOFLOAT: return "TOFLOAT"; break;
         case NODE_FLOAT: return "FLOAT"; break;
+        case NODE_INSTANCE: return "INSTANCE"; break;
         default: return "UNKNOWN"; break;
     }
 }
@@ -229,60 +233,73 @@ public:
             return node;
         }
 
-         if (current->TYPE == TOKEN_LPAREN)
-            {
-                return parseFunctionCall(buffer);
-            }
-
+        if (current->TYPE == TOKEN_LPAREN)
+        {
+            return parseFunctionCall(buffer);
+        }
+        if(current->TYPE == TOKEN_DOT) {
+            return parseInstancecall(buffer);
+        }
         // Otherwise assignment
         proceed(TOKEN_EQ);
         AST_NODE *node = new AST_NODE();
         node->TYPE = NODE_VARIABLE;
         node->value = buffer;
         node->CHILD = parseComparison();
-            node->lineno = current->lineno;
-            node->sourceLine = current->sourceLine;
-            node->extra = current->extra;
-            node->charno = current->charno;
+        node->lineno = current->lineno;
+        node->sourceLine = current->sourceLine;
+        node->extra = current->extra;
+        node->charno = current->charno;
+        return node;
+    }
+
+    AST_NODE *parseInstancecall(string *buffer) {
+        AST_NODE *node =  new AST_NODE();;
+        node->TYPE = NODE_INSTANCE;
+        node->value = buffer;
+        node->lineno = current->lineno;
+        node->sourceLine = current->sourceLine;
+        node->extra = current->extra;
+        node->charno = current->charno;
+        proceed(TOKEN_DOT);
+        node->CHILD = parseID();
         return node;
     }
 
     //parse list
     AST_NODE *parseList() {
-    AST_NODE *listNode = new AST_NODE();
-    
+        AST_NODE *listNode = new AST_NODE();
+        // consume '['
+        proceed(TOKEN_LBRACKET);
 
-    // consume '['
-    proceed(TOKEN_LBRACKET);
+        // empty list case: []
+        if (current->TYPE == TOKEN_RBRACKET) {
+            proceed(TOKEN_RBRACKET);
+            listNode->TYPE = NODE_LIST;
+        listNode->lineno = current->lineno;
+                listNode->sourceLine = current->sourceLine;
+                listNode->extra = current->extra;
+                listNode->charno = current->charno;
+            return listNode;
+        }
 
-    // empty list case: []
-    if (current->TYPE == TOKEN_RBRACKET) {
+        // parse first element
+        listNode->SUB_STATEMENTS.push_back(parseExpression());
+
+        // parse remaining elements separated by commas
+        while (current->TYPE == TOKEN_COMMA) {
+            proceed(TOKEN_COMMA);
+            listNode->SUB_STATEMENTS.push_back(parseExpression());
+        }
+
+        // closing bracket
         proceed(TOKEN_RBRACKET);
         listNode->TYPE = NODE_LIST;
-    listNode->lineno = current->lineno;
-            listNode->sourceLine = current->sourceLine;
-            listNode->extra = current->extra;
-            listNode->charno = current->charno;
+        listNode->lineno = current->lineno;
+                listNode->sourceLine = current->sourceLine;
+                listNode->extra = current->extra;
+                listNode->charno = current->charno;
         return listNode;
-    }
-
-    // parse first element
-    listNode->SUB_STATEMENTS.push_back(parseExpression());
-
-    // parse remaining elements separated by commas
-    while (current->TYPE == TOKEN_COMMA) {
-        proceed(TOKEN_COMMA);
-        listNode->SUB_STATEMENTS.push_back(parseExpression());
-    }
-
-    // closing bracket
-    proceed(TOKEN_RBRACKET);
-    listNode->TYPE = NODE_LIST;
-    listNode->lineno = current->lineno;
-            listNode->sourceLine = current->sourceLine;
-            listNode->extra = current->extra;
-            listNode->charno = current->charno;
-    return listNode;
 }
 
     AST_NODE *parseDict(bool styleparse = false) {
@@ -368,7 +385,7 @@ public:
                 }
                 proceed(TOKEN_RBRACE);
                 objNode->TYPE = NODE_DICT;
-    objNode->lineno = current->lineno;
+        objNode->lineno = current->lineno;
             objNode->sourceLine = current->sourceLine;
             objNode->extra = current->extra;
                 objNode->charno = current->charno;
@@ -377,7 +394,7 @@ public:
             {
                 proceed(TOKEN_RBRACE);
                 objNode->TYPE = NODE_DICT;
-    objNode->lineno = current->lineno;
+        objNode->lineno = current->lineno;
             objNode->sourceLine = current->sourceLine;
             objNode->extra = current->extra;
             objNode->charno = current->charno;
@@ -391,18 +408,42 @@ public:
         AST_NODE *node = new AST_NODE();
         node->TYPE = nodetype;
         proceed(TOKEN_LPAREN);
+        // node->CHILD = parseComparison();
+        switch (nodetype) {
+            case NODE_TOSTR: {
+                if (current->TYPE != TOKEN_INT || current->TYPE != TOKEN_FLOAT) {
+                    parserError("Can Only Convert Number str");
+                }
+            }
+            case NODE_TOFLOAT:
+            case NODE_TOINT: {
+                if (current->TYPE != TOKEN_STRING) {
+                    parserError("Can onnly convert str to number '"+ current->value + "'");
+                }
+                if (current->TYPE == TOKEN_STRING) {
+                    const regex pattern("^[0-9]*\\.?[0-9]+$|^[0-9]+\\.?[0-9]*$");
+
+                    if (!regex_match(current->value, pattern) || current->value[0] == '.') {
+                        parserError("String Doesnt Contain Number '"+ current->value + "'");
+                    }
+                }   
+            }
+            default: {
+                parserWarning("????");
+            }
+        }
         node->CHILD = parseComparison();
         proceed(TOKEN_RPAREN);
         return node;
     }
 
 
-    // ---------- Factor / Expression ----------
+    // ---------- Factor ----------
     AST_NODE *parseFactor() {
         if (current->TYPE == TOKEN_LBRACE || current->TYPE == TOKEN_HASH) {
             AST_NODE *node = parseDict();
             node->TYPE = NODE_DICT;
-    node->lineno = current->lineno;
+        node->lineno = current->lineno;
             node->sourceLine = current->sourceLine;
             node->extra = current->extra;
             node->charno = current->charno;
@@ -500,6 +541,8 @@ public:
                 return parseConversions(NODE_TOSTR);
             } else if (current->value == "to_float") {
                 return parseConversions(NODE_TOFLOAT);
+            } else if (current->value == "draw") {
+                return parseCtx();
             }
         }
 
@@ -866,6 +909,10 @@ public:
         AST_NODE *callNode = new AST_NODE();
         callNode->TYPE = tyPE;
         callNode->value = funcName;
+        callNode->lineno = current->lineno;
+        callNode->sourceLine = current->sourceLine;
+        callNode->extra = current->extra;
+        callNode->charno = current->charno;
         proceed(TOKEN_LPAREN);
         if (current->TYPE != TOKEN_RPAREN) {
             callNode->SUB_STATEMENTS.push_back(parseExpression());
@@ -878,7 +925,6 @@ public:
         return callNode;
     }
     
-
     // ---------- FUNCTION DECLARATION ----------
     AST_NODE *parseFunctionDecl(bool callback=false, string *funcname = nullptr) {
        AST_NODE *funcNode = new AST_NODE();
@@ -972,13 +1018,6 @@ public:
         return funcNode;
     }
 
-    // ---------- FUNCTION DECLARATION ----------
-
-    /*
-        page() {
-
-        }
-    */
     AST_NODE *parsepage() {
         string *funcName = &current->value;
         proceed(TOKEN_KEYWORD); // "page"
@@ -1192,7 +1231,7 @@ public:
                 }
                 
             } else {
-                parserError("Unexpected in" + nodetostr(typw) +"Call : "+ current->value);
+                parserError("Unexpected in" + nodetostr(typw) +"() : "+ current->value);
             }
 
 
@@ -1550,7 +1589,54 @@ public:
 
         proceed(TOKEN_RBRACE);
         return styleNode;
-}
+    }
+
+    AST_NODE *parseCtx() {
+        proceed(current->TYPE);
+        AST_NODE * ctx = new AST_NODE;
+        ctx->TYPE = NODE_DRAW;
+        proceed(TOKEN_LPAREN);
+        if (current->TYPE == TOKEN_RPAREN) {
+            parserError("Please Pass An ID");
+        }
+        if (current->TYPE != TOKEN_RPAREN) {
+            AST_NODE *args = new AST_NODE();
+            args->TYPE = NODE_ARGS;
+
+            AST_NODE *param = new AST_NODE();
+            if (current->TYPE == TOKEN_STRING || current->TYPE == TOKEN_ID)
+            {
+                if (current->TYPE == TOKEN_STRING)
+                {
+                    param->TYPE = NODE_STRING;
+                    param->value = &current->value;
+                    param->lineno = current->lineno;
+                    param->sourceLine = current->sourceLine;
+                    param->extra = current->extra;
+                    param->charno = current->charno;
+                    proceed(TOKEN_STRING);
+                }
+                if (current->TYPE == TOKEN_ID)
+                {
+                    param->TYPE = NODE_VARIABLE;
+                    param->value = &current->value;
+                    param->lineno = current->lineno;
+                    param->sourceLine = current->sourceLine;
+                    param->extra = current->extra;
+                    param->charno = current->charno;
+                    proceed(TOKEN_ID);
+                }
+                args->SUB_STATEMENTS.push_back(param);
+                ctx->CHILD = args;
+
+            } else {
+                parserError("Unexpected in Arg Draw() : "+ current->value);
+            }
+
+        }
+        proceed(TOKEN_RPAREN);
+        return ctx;
+    }
 
 
     std::vector<std::string> defined_keywords = { "true", "false", "null" };
@@ -1629,6 +1715,8 @@ public:
                 return parseView(NODE_VIEW);
             } else if (current->value == "text") {
                 return parseView(NODE_TEXT);
+            } else if (current->value == "draw") {
+                return parseCtx();
             } else if (current->value == "canvas") {
                 return parseView(NODE_CANVAS);
             } else if (current->value == "go") {

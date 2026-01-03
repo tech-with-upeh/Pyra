@@ -153,7 +153,7 @@ class Lexer
             ctrl = false;
         }
         std::vector<std::string> keywords = {
-            "if", "else", "while", "for", "return", "class", "import", "pass", "break", "continue", "def","type", "true", "false","print", "page", "app", "view", "text", "img", "canvas" , "input", "state", "go", "stylesheet", "to_int", "to_str", "to_float"
+            "if", "else", "while", "for", "return", "class", "import", "pass", "break", "continue", "def","type", "true", "false","print", "page", "app", "view", "text", "img", "canvas" , "input", "state", "go", "stylesheet", "to_int", "to_str", "to_float", "draw"
         };
         
         char advance()

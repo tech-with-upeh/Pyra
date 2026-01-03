@@ -50,13 +50,15 @@ page("about Page", route="/about") {
     }
 } */
 
+page("MAIN") {
+    onmount() {
+        ctx = draw('hero')
+        ctx.setFill("#850000ff")
+        ctx.rect(10, 10, 70 ,150)
 
-sd = 13.44
-
-to_int("23")
-
-str = "1425"
-str = to_int(str)
-
-to_str(45)
-print(sd)
+        for(i=0 : i < 50 : i++) {
+            print(12+to_int("34"))
+        }
+    }
+    canvas("hero", height=500, width=500)
+}

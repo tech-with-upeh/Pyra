@@ -12,6 +12,7 @@ enum VarType {
     TYPE_STRING,
     TYPE_BOOL,
     TYPE_FUNCTION,
+    TYPE_FLOAT,
     TYPE_DICT,
 };
 
@@ -22,6 +23,7 @@ string vartypestr(VarType type) {
         case TYPE_BOOL: return "BOOL"; break;
         case TYPE_FUNCTION: return "FUNCTION"; break;
         case TYPE_DICT: return "DICT"; break;
+        case TYPE_FLOAT: return "FLOAT"; break;
         default: return "UNKNOWN"; break;
     }
 }
@@ -36,6 +38,11 @@ struct PageInfo {
     bool index;
 };
 
+struct InstanceInfo {
+    std::unordered_map<std::string, std::vector<VarType>> callables;
+    bool issystemdefined;
+};
+
 class SemanticAnalyzer {
 public:
     void analyze(AST_NODE *root) {
@@ -44,6 +51,7 @@ public:
         declaredFunctions.clear();
         calledFunctions.clear();
         pagescope.clear();
+        instances.clear();
 
         // Pass 1: Analyze all statements
         for (auto stmt : root->SUB_STATEMENTS) {
@@ -64,6 +72,14 @@ private:
     std::unordered_map<std::string, VarInfo> declaredFunctions;
     std::vector<std::string> calledFunctions;
     std::unordered_map<std::string, PageInfo> pagescope;
+    std::unordered_map<std::string, InstanceInfo> instances;
+    std::unordered_map<std::string, std::vector<VarType>> draw_callables = {
+        {"clear", {}}, 
+        {"rect", {TYPE_INT,TYPE_INT,TYPE_INT,TYPE_INT}},
+        {"setFill", {TYPE_STRING}}
+    };
+
+
 
     void parserError(const std::string &message, AST_NODE* current) {
         std::cerr << "\nSemantics Error: " << message
@@ -80,7 +96,7 @@ private:
         std::exit(1);
     }
 
-    VarType checkNode(AST_NODE *node, bool uiexcept = false, bool funcdecl = false) {
+    VarType checkNode(AST_NODE *node, bool uiexceptonstylsheet = false, bool funcdecl = false, bool isfrompage = false) {
         if (!node) return TYPE_UNKNOWN;
 
         switch (node->TYPE) {
@@ -100,11 +116,13 @@ private:
                 
                 return TYPE_BOOL;
             }
+            case NODE_FLOAT:
+                return TYPE_FLOAT;
             
             case NODE_DICT: {
                 for (const auto& i : node->SUB_STATEMENTS)
                 {
-                    if (!uiexcept)
+                    if (!uiexceptonstylsheet)
                     {
                         if (i->SUB_STATEMENTS[0]->TYPE == NODE_VARIABLE)
                         {
@@ -134,7 +152,10 @@ private:
             case NODE_VARIABLE: {
                 std::string name = *node->value;
                 if (node->CHILD) {
-                    VarType rhsType = checkNode(node->CHILD);
+                    VarType rhsType = checkNode(node->CHILD, uiexceptonstylsheet, funcdecl, isfrompage);
+                    if (node->CHILD->TYPE == NODE_DRAW) {
+                        instances[name] = {draw_callables, true};
+                    }
                     if(node->TYPE == NODE_VARIABLE) {
                         scope[name] = {rhsType, true};
                     }
@@ -225,13 +246,14 @@ private:
                     for (auto &i : node->SUB_STATEMENTS)
                     {
                         if (i->TYPE == NODE_FUNCTION_DECL && *(i->value) == "onmount")  {
-                            checkNode(i, false, true);
+                            checkNode(i, false, true, true);
                             continue;
                         }
-                        checkNode(i);
+                        checkNode(i, true,false, true);
                     }
                 }
                 statevars.clear();
+                instances.clear();
                 return TYPE_FUNCTION;
             }
 
@@ -276,12 +298,17 @@ private:
                 VarType rightType = checkNode(node->SUB_STATEMENTS[1]);
                 std::string op = *node->value;
 
+                if (leftType == TYPE_INT ||  leftType == TYPE_FLOAT) {
+                    if (rightType == TYPE_INT || rightType == TYPE_FLOAT) {
+                        return TYPE_FLOAT;
+                    }
+                }
                 if (leftType != rightType) {
-                   parserError("Type mismatch in binary operation '" + op + "'", node);
+                   parserError("Type mismatch in binary operation, can't "+ vartypestr(leftType) + " " + op + " " + vartypestr(rightType), node);
                 }
 
                 if (op == "*" || op == "/") {
-                    if (leftType != TYPE_INT)
+                    if (leftType != TYPE_INT && leftType != TYPE_FLOAT)
                         parserError("Operator '" + op + "' only supports numbers.", node);
                     return TYPE_INT;
                 }
@@ -357,10 +384,38 @@ private:
             case NODE_RETURN:
             case NODE_PRINT:
             case NODE_GO:
+            case NODE_DRAW:
             case NODE_TYPE_CHECK:
-                if (node->CHILD) checkNode(node->CHILD);
+                if (node->CHILD) {
+                    if (node->TYPE == NODE_DRAW) {
+                        if (!isfrompage) {
+                            //logic to add to instance
+                        }
+                        VarType ty = checkNode(node->CHILD->SUB_STATEMENTS[0]);
+                        if (ty != TYPE_STRING) {
+                            parserError("Type Conversion Must be Str.", node->CHILD);
+                        }
+                        return TYPE_FUNCTION;
+                    }
+                    VarType ty = checkNode(node->CHILD);
+
+                    if(node->TYPE == NODE_TOFLOAT || node->TYPE == NODE_TOINT) {
+                        if (ty != TYPE_STRING) {
+                            parserError("Type Conversion Must be Str.", node->CHILD);
+                        }
+                        if (node->TYPE == NODE_TOINT) {
+                            return TYPE_INT;
+                        }
+                        if (node->TYPE == NODE_TOFLOAT) {
+                            return TYPE_FLOAT;
+                        }
+                    }
+                    if (node->TYPE == NODE_TOSTR) {
+                        return TYPE_STRING;
+                    }
+                } 
                 
-                return TYPE_UNKNOWN;
+                return TYPE_FUNCTION;
 
             
 
@@ -414,11 +469,47 @@ private:
             case NODE_CLS:
                 checkNode(node->CHILD, true);
                 return TYPE_UNKNOWN;
-            case NODE_MEDIA_QUERY:
+            case NODE_MEDIA_QUERY: {
                 checkNode(node->CHILD);
                 for (auto stmt : node->SUB_STATEMENTS)
                     checkNode(stmt, false);
                 return TYPE_UNKNOWN;
+            }
+            case NODE_INSTANCE: {
+                auto it = instances.find(*(node->value));
+                if (it == instances.end()) {
+                    parserError("'"+ *(node->value) +"' is not Callable", node);
+                }
+                if (node->CHILD) {
+                    auto& calls = it->second.callables;
+                
+                    auto ch = calls.find(*(node->CHILD->value));
+                    if (ch == calls.end()) {
+                        parserError("'"+ *(node->value) +"' Has no member '"+ *(node->CHILD->value) +"'", node->CHILD);
+                    } 
+                    if(node->CHILD->SUB_STATEMENTS.empty()) {
+                        std::cout << "-->" << ch->second.size() << std::endl;
+                    } else {
+                        if (node->CHILD->SUB_STATEMENTS.size() != ch->second.size()) {
+                            parserError("'"+ *(node->CHILD->value) +"' was expecting '"+ to_string(ch->second.size()) +" arguments but got: " + to_string(node->CHILD->SUB_STATEMENTS.size()), node->CHILD);
+                        }
+
+                        for (auto &subs : node->CHILD->SUB_STATEMENTS) {
+                            for (auto &chv : ch->second) {
+                                VarType nodecheck = checkNode(subs, uiexceptonstylsheet, funcdecl, isfrompage);
+                                if (nodecheck != chv ) {
+                                    if (nodecheck == TYPE_INT && chv == TYPE_FLOAT) {
+                                        continue;
+                                    } else if (nodecheck == TYPE_FLOAT && chv == TYPE_INT) {
+                                        continue;
+                                    }
+                                    parserError("'"+ *(node->CHILD->value) +"' was expecting '"+ vartypestr(chv) +"  but got: " + vartypestr(nodecheck), subs);
+                                }
+                            }
+                        }
+                    }
+                }
+            }
             default:
                 return TYPE_UNKNOWN;
         }
