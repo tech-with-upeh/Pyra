@@ -20,6 +20,10 @@ int main() {
 			ctx.setFill(string("#850000ff"));
 			ctx.rect(10,10,70,150);
 			
+			
+			
+			
+			
 		});
 
 		

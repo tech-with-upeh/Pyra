@@ -139,17 +139,10 @@ class WebEngine {
 
                 */
                 case NODE_UNARY_OP: {
-                    string operand = exprForNode(p->SUB_STATEMENTS[0]);
+                    string operand = exprForNode(p->CHILD);
                     string op = *(p->value);
-                    if (op == "++")
-                    {
-                        op = "+";
-                    }
-                    else
-                    {
-                        op = "-";
-                    }
-                    return "(" + operand + " " + op + " " + operand + ")";
+                    
+                    return operand  + op ;
                 }
                 default:
                     return MakeConversion(p, p->TYPE, false);
@@ -879,6 +872,44 @@ class WebEngine {
                 case NODE_INSTANCE: {
                     stringstream ss;
                     ss << *(p->value) << "." << HandleAst(p->CHILD,parent,funcdecl, fromui);
+                    return ss.str();
+                }
+                case NODE_BINARY_OP:
+                case NODE_BOOL:
+                case NODE_UNARY_OP: {
+                    if (p->TYPE == NODE_BINARY_OP || p->TYPE == NODE_BOOL)
+                    {
+                        return exprForNode(p) + ";";
+                    }
+                    
+                    return exprForNode(p);
+                }
+
+                case NODE_FOR: {
+                    stringstream ss;
+                    /*
+                    for (int i = 0; i < count; i++)
+                    {
+                        code
+                    }
+                    */
+                   ss << "for (";
+                   if (p->CHILD->TYPE == NODE_ARGS)
+                   {
+                        for (auto &i : p->CHILD->SUB_STATEMENTS)
+                        {
+                            ss << HandleAst(i, parent, funcdecl, fromui);
+                        }
+                        
+                        //ss << HandleAst(p->CHILD->SUB_STATEMENTS[0], parent, funcdecl, fromui) << exprForNode(p->CHILD->SUB_STATEMENTS[1]) <<  exprForNode(p->CHILD->SUB_STATEMENTS[2]) << ") {\n";
+                   }
+                   ss << "){";
+                   for (auto &i : p->SUB_STATEMENTS)
+                   {
+                    ss << HandleAst(i, parent, funcdecl, fromui);
+                   }
+                   
+                   ss << "}";
                     return ss.str();
                 }
                  default:

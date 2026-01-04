@@ -57,6 +57,11 @@ void printAST(AST_NODE* node, int depth = 0, const std::string& relation = "ROOT
         case NODE_FLOAT: std::cout << "FLOAT"; break;
         case NODE_DRAW: std::cout << "DRAW"; break;
         case NODE_INSTANCE: std::cout << "INSTANCE"; break;
+        case NODE_MATH_COS: std::cout << "MATH_COS"; break;
+        case NODE_MATH_POW: std::cout << "MATH_POW"; break;
+        case NODE_MATH_SIN: std::cout << "MATH_SIN"; break;
+        case NODE_MATH_SQRT: std::cout << "MATH_SQRT"; break;
+        case NODE_MATH_TAN: std::cout << "MATH_TAN"; break;
         default: std::cout << "UNKNOWN"; break;
     }
 

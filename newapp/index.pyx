@@ -48,6 +48,7 @@ page("about Page", route="/about") {
     view("nav") {
         text("My win", cls="mytx")
     }
+}
 } */
 
 page("MAIN") {
@@ -56,9 +57,11 @@ page("MAIN") {
         ctx.setFill("#850000ff")
         ctx.rect(10, 10, 70 ,150)
 
-        for(i=0 : i < 50 : i++) {
-            print(12+to_int("34"))
-        }
+        pow(9)
+        sin(2)
+        cos(56)
+        tan(89)
+        sqrt(90)
     }
     canvas("hero", height=500, width=500)
 }

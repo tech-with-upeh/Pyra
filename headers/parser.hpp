@@ -33,6 +33,11 @@ enum NODE_TYPE {
     NODE_LOOP_CTRL,
     NODE_KEYVALUE,  // new
     NODE_DICT, 
+    NODE_MATH_SIN,
+    NODE_MATH_SQRT,
+    NODE_MATH_COS,
+    NODE_MATH_TAN,
+    NODE_MATH_POW,
     NODE_STYLE,
     //ui specifics
     NODE_app,
@@ -114,6 +119,11 @@ string nodetostr(enum NODE_TYPE tYPE) {
         case NODE_TOFLOAT: return "TOFLOAT"; break;
         case NODE_FLOAT: return "FLOAT"; break;
         case NODE_INSTANCE: return "INSTANCE"; break;
+        case NODE_MATH_COS: return "MATH_COS"; break;
+        case NODE_MATH_POW: return "MATH_POW"; break;
+        case NODE_MATH_SIN: return "MATH_SIN"; break;
+        case NODE_MATH_SQRT: return "MATH_SQRT"; break;
+        case NODE_MATH_TAN: return "MATH_TAN"; break;
         default: return "UNKNOWN"; break;
     }
 }
@@ -852,8 +862,14 @@ public:
             paran = true;
             proceed(TOKEN_LPAREN);
 
+        AST_NODE *argsNode = new AST_NODE;
+        argsNode->TYPE = NODE_ARGS;
+        argsNode->charno = current->charno;
+        argsNode->extra = current->extra;
+        argsNode->lineno = current->lineno;
+        argsNode->sourceLine = current->sourceLine;
         // init
-        AST_NODE *initNode = nullptr;
+        AST_NODE *initNode = new AST_NODE;
         if (current->TYPE == TOKEN_ID)
             initNode = parseID();
         else
@@ -872,9 +888,10 @@ public:
         if (paran)
             proceed(TOKEN_RPAREN);
 
-        forNode->SUB_STATEMENTS.push_back(initNode);
-        forNode->SUB_STATEMENTS.push_back(conditionNode);
-        forNode->SUB_STATEMENTS.push_back(incrementNode);
+        argsNode->SUB_STATEMENTS.push_back(initNode);
+        argsNode->SUB_STATEMENTS.push_back(conditionNode);
+        argsNode->SUB_STATEMENTS.push_back(incrementNode);
+        forNode->CHILD = argsNode;
 
         // body
         proceed(TOKEN_LBRACE);
@@ -1665,6 +1682,10 @@ public:
                 proceed(TOKEN_LPAREN);
                 node->CHILD = parseComparison();
                 proceed(TOKEN_RPAREN);
+                node->charno = current->charno;
+                node->lineno = current->lineno;
+                node->sourceLine = current->sourceLine;
+                node->extra = current->extra;
                 return node;
             } else if (current->value == "to_int") {
                 proceed(TOKEN_KEYWORD);
@@ -1673,6 +1694,10 @@ public:
                 proceed(TOKEN_LPAREN);
                 node->CHILD = parseComparison();
                 proceed(TOKEN_RPAREN);
+                node->charno = current->charno;
+                node->lineno = current->lineno;
+                node->sourceLine = current->sourceLine;
+                node->extra = current->extra;
                 return node;
             } else if (current->value == "to_str") {
                 proceed(TOKEN_KEYWORD);
@@ -1681,6 +1706,10 @@ public:
                 proceed(TOKEN_LPAREN);
                 node->CHILD = parseComparison();
                 proceed(TOKEN_RPAREN);
+                node->charno = current->charno;
+                node->lineno = current->lineno;
+                node->sourceLine = current->sourceLine;
+                node->extra = current->extra;
                 return node;
             } else if (current->value == "to_float") {
                 proceed(TOKEN_KEYWORD);
@@ -1689,6 +1718,84 @@ public:
                 proceed(TOKEN_LPAREN);
                 node->CHILD = parseComparison();
                 proceed(TOKEN_RPAREN);
+                node->charno = current->charno;
+                node->lineno = current->lineno;
+                node->sourceLine = current->sourceLine;
+                node->extra = current->extra;
+                return node;
+            } else if (current->value == "sin") {
+                proceed(TOKEN_KEYWORD);
+                AST_NODE *node = new AST_NODE();
+                node->TYPE = NODE_MATH_SIN;
+                proceed(TOKEN_LPAREN);
+                node->CHILD = parseComparison();
+                proceed(TOKEN_RPAREN);
+                node->charno = current->charno;
+                node->lineno = current->lineno;
+                node->sourceLine = current->sourceLine;
+                node->extra = current->extra;
+                return node;
+            } else if (current->value == "cos") {
+                proceed(TOKEN_KEYWORD);
+                AST_NODE *node = new AST_NODE();
+                node->TYPE = NODE_MATH_COS;
+                proceed(TOKEN_LPAREN);
+                node->CHILD = parseComparison();
+                proceed(TOKEN_RPAREN);
+                node->charno = current->charno;
+                node->lineno = current->lineno;
+                node->sourceLine = current->sourceLine;
+                node->extra = current->extra;
+                return node;
+            } else if (current->value == "tan") {
+                proceed(TOKEN_KEYWORD);
+                AST_NODE *node = new AST_NODE();
+                node->TYPE = NODE_MATH_TAN;
+                proceed(TOKEN_LPAREN);
+                node->CHILD = parseComparison();
+                proceed(TOKEN_RPAREN);
+                node->charno = current->charno;
+                node->lineno = current->lineno;
+                node->sourceLine = current->sourceLine;
+                node->extra = current->extra;
+                return node;
+            } else if (current->value == "sqrt") {
+                proceed(TOKEN_KEYWORD);
+                AST_NODE *node = new AST_NODE();
+                node->TYPE = NODE_MATH_SQRT;
+                proceed(TOKEN_LPAREN);
+                node->CHILD = parseComparison();
+                proceed(TOKEN_RPAREN);
+                node->charno = current->charno;
+                node->lineno = current->lineno;
+                node->sourceLine = current->sourceLine;
+                node->extra = current->extra;
+                return node;
+            } else if (current->value == "pow") {
+                proceed(TOKEN_KEYWORD);
+                AST_NODE *node = new AST_NODE();
+                node->TYPE = NODE_MATH_POW;
+                proceed(TOKEN_LPAREN);
+                AST_NODE *args = new AST_NODE;
+                args = parseComparison();
+                if (current->TYPE == TOKEN_COMMA) {
+                    proceed(TOKEN_COMMA);
+                    AST_NODE *arg2 = parseComparison();
+                    proceed(TOKEN_RPAREN);
+                    node->SUB_STATEMENTS.push_back(args);
+                    node->SUB_STATEMENTS.push_back(arg2);
+                    node->charno = current->charno;
+                    node->lineno = current->lineno;
+                    node->sourceLine = current->sourceLine;
+                    node->extra = current->extra;
+                    return node;
+                }
+                proceed(TOKEN_RPAREN);
+                node->CHILD = args;
+                node->charno = current->charno;
+                node->lineno = current->lineno;
+                node->sourceLine = current->sourceLine;
+                node->extra = current->extra;
                 return node;
             } else if (current->value == "img") {
                 return parseView(NODE_IMAGE);
@@ -1706,6 +1813,9 @@ public:
                 node->CHILD = parseFactor();
                 proceed(TOKEN_RPAREN);
                 node->charno = current->charno;
+                node->lineno = current->lineno;
+                node->sourceLine = current->sourceLine;
+                node->extra = current->extra;
                 return node;
             }  else if (current->value == "def") {
                 return parseFunctionDecl();

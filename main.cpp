@@ -569,7 +569,7 @@ void builder() {
     }
     cout << "[Helios] Compiled Projects Successfully! [Helios]\n";
 
-    string cmd = "emcc web/generated.cpp -o web/main.js " 
+    string cmd = "em++ web/generated.cpp -o web/main.js " 
         "-sEXPORTED_FUNCTIONS=\"['_main','_invokeVNodeCallback','_js_insertHTML','_js_setTitle','_malloc','_free', '_handleRoute']\" "
         "-sEXPORTED_RUNTIME_METHODS=\"['ccall','cwrap','stringToUTF8','lengthBytesUTF8']\" "
         "-sALLOW_MEMORY_GROWTH=1 -sASSERTIONS=1 -sDEFAULT_LIBRARY_FUNCS_TO_INCLUDE='$allocateUTF8'";

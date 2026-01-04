@@ -475,6 +475,7 @@ private:
                     checkNode(stmt, false);
                 return TYPE_UNKNOWN;
             }
+
             case NODE_INSTANCE: {
                 auto it = instances.find(*(node->value));
                 if (it == instances.end()) {
@@ -509,6 +510,35 @@ private:
                         }
                     }
                 }
+                return TYPE_FUNCTION;
+            }
+            case NODE_MATH_POW: {
+                if (node->CHILD) 
+                {
+                    VarType arg = checkNode(node->CHILD, uiexceptonstylsheet, funcdecl,isfrompage);
+                    if (arg != TYPE_INT && arg != TYPE_FLOAT) {
+                        parserError("power only accepts number but got "+ nodetostr(node->CHILD->TYPE), node->CHILD);
+                    }
+                    return TYPE_FLOAT;
+                }
+                for (auto &i : node->SUB_STATEMENTS)
+                {
+                    VarType arg = checkNode(i, uiexceptonstylsheet, funcdecl,isfrompage);
+                    if (arg != TYPE_INT && arg != TYPE_FLOAT) {
+                        parserError("power only--accepts number but got "+ nodetostr(i->TYPE), i);
+                    }   
+                }
+                return TYPE_FLOAT;
+            }
+            case NODE_MATH_COS:
+            case NODE_MATH_SQRT:
+            case NODE_MATH_TAN:
+            case NODE_MATH_SIN: {
+                VarType arg = checkNode(node->CHILD, uiexceptonstylsheet, funcdecl,isfrompage);
+                if (arg != TYPE_INT && arg != TYPE_FLOAT) {
+                    parserError( nodetostr(node->TYPE) +" only accepts number but got "+ nodetostr(node->CHILD->TYPE), node->CHILD);
+                }
+                return TYPE_FLOAT;
             }
             default:
                 return TYPE_UNKNOWN;

@@ -23,6 +23,6 @@ class SPAHandler(SimpleHTTPRequestHandler):
 
 if __name__ == "__main__":
     # os.chdir("public")  # Your build output folder
-    server = ThreadedHTTPServer(("0.0.0.0", 8000), SPAHandler)
-    print("Serving on http://0.0.0.0:8000 (multi-threaded)")
+    server = ThreadedHTTPServer(("0.0.0.0", 9000), SPAHandler)
+    print("Serving on http://0.0.0.0:9000 (multi-threaded)")
     server.serve_forever()
