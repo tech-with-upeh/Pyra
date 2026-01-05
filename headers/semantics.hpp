@@ -38,8 +38,15 @@ struct PageInfo {
     bool index;
 };
 
+struct CallableInfo {
+    std::vector<VarType> args;
+    bool hasReturn;
+    bool isVariadic;
+    VarType returnType;
+};
+
 struct InstanceInfo {
-    std::unordered_map<std::string, std::vector<VarType>> callables;
+    std::unordered_map<std::string, CallableInfo> callables; // 
     bool issystemdefined;
 };
 
@@ -73,10 +80,30 @@ private:
     std::vector<std::string> calledFunctions;
     std::unordered_map<std::string, PageInfo> pagescope;
     std::unordered_map<std::string, InstanceInfo> instances;
-    std::unordered_map<std::string, std::vector<VarType>> draw_callables = {
-        {"clear", {}}, 
-        {"rect", {TYPE_INT,TYPE_INT,TYPE_INT,TYPE_INT}},
-        {"setFill", {TYPE_STRING}}
+    std::unordered_map<std::string, CallableInfo> draw_callables = {
+        {"clear", {{}, false, true, TYPE_UNKNOWN} },
+        {"setFill",     {{ TYPE_STRING }, false, true, TYPE_UNKNOWN}},
+        {"setStroke",   {{ TYPE_STRING }, false, true, TYPE_UNKNOWN}},
+        {"lineWidth",   {{ TYPE_INT }, false, true, TYPE_UNKNOWN}},
+        {"alpha",       {{ TYPE_INT }, false, true, TYPE_UNKNOWN}},
+
+        {"rect",        {{ TYPE_INT, TYPE_INT, TYPE_INT, TYPE_INT }, false, true, TYPE_UNKNOWN}},
+        {"strokeRect",  {{ TYPE_INT, TYPE_INT, TYPE_INT, TYPE_INT }, false, true, TYPE_UNKNOWN}},
+        {"line",        {{ TYPE_INT, TYPE_INT, TYPE_INT, TYPE_INT }, false, true, TYPE_UNKNOWN}},
+
+        {"circle",        {{ TYPE_INT, TYPE_INT, TYPE_INT }, false, true, TYPE_UNKNOWN}},
+        {"strokeCircle",  {{ TYPE_INT, TYPE_INT, TYPE_INT }, false, true, TYPE_UNKNOWN}},
+
+        {"font",        {{ TYPE_STRING }, false, true, TYPE_UNKNOWN}},
+        {"text",        {{ TYPE_STRING, TYPE_INT, TYPE_INT }, false, true, TYPE_UNKNOWN}},
+
+        {"move",        {{ TYPE_INT, TYPE_INT }, false, true, TYPE_UNKNOWN}},
+        {"rotate",      {{ TYPE_INT }, false, true, TYPE_UNKNOWN}},
+        {"scale",       {{ TYPE_INT, TYPE_INT }, false, true, TYPE_UNKNOWN}}
+    };
+
+    std::unordered_map<std::string, CallableInfo> platform_callables = {
+        {"height",{{}, true, false, TYPE_INT}}
     };
 
 
@@ -155,6 +182,9 @@ private:
                     VarType rhsType = checkNode(node->CHILD, uiexceptonstylsheet, funcdecl, isfrompage);
                     if (node->CHILD->TYPE == NODE_DRAW) {
                         instances[name] = {draw_callables, true};
+                    }
+                    if (node->CHILD->TYPE == NODE_PLATFORM_CLS) {
+                        instances[name] = {platform_callables, true};
                     }
                     if(node->TYPE == NODE_VARIABLE) {
                         scope[name] = {rhsType, true};
@@ -482,21 +512,35 @@ private:
                     parserError("'"+ *(node->value) +"' is not Callable", node);
                 }
                 if (node->CHILD) {
-                    auto& calls = it->second.callables;
+                    auto& secondinstance = it->second;
+                    auto& calls = secondinstance.callables;
                 
                     auto ch = calls.find(*(node->CHILD->value));
                     if (ch == calls.end()) {
                         parserError("'"+ *(node->value) +"' Has no member '"+ *(node->CHILD->value) +"'", node->CHILD);
                     } 
                     if(node->CHILD->SUB_STATEMENTS.empty()) {
-                        std::cout << "-->" << ch->second.size() << std::endl;
+                        std::cout << "-->" << ch->second.args.size() << std::endl;
                     } else {
-                        if (node->CHILD->SUB_STATEMENTS.size() != ch->second.size()) {
-                            parserError("'"+ *(node->CHILD->value) +"' was expecting '"+ to_string(ch->second.size()) +" arguments but got: " + to_string(node->CHILD->SUB_STATEMENTS.size()), node->CHILD);
+                        if (node->CHILD->SUB_STATEMENTS.size() != ch->second.args.size()) {
+                            parserError("'"+ *(node->CHILD->value) +"' was expecting '"+ to_string(ch->second.args.size()) +" arguments but got: " + to_string(node->CHILD->SUB_STATEMENTS.size()), node->CHILD);
+                        }
+                        if (ch->second.isVariadic) {
+                            if(node->CHILD->TYPE != NODE_FUNCTION_CALL) {
+                                parserError("'" + *(node->CHILD->value) + "' is not callable!", node->CHILD);
+                            }
+                        } else {
+                            if (secondinstance.issystemdefined) {
+                                if (node->CHILD->CHILD)
+                                {
+                                    parserError("'" + *(node->CHILD->value) + "' is not assignable", node->CHILD);
+                                }
+                                
+                            }
                         }
 
                         for (auto &subs : node->CHILD->SUB_STATEMENTS) {
-                            for (auto &chv : ch->second) {
+                            for (auto &chv : ch->second.args) {
                                 VarType nodecheck = checkNode(subs, uiexceptonstylsheet, funcdecl, isfrompage);
                                 if (nodecheck != chv ) {
                                     if (nodecheck == TYPE_INT && chv == TYPE_FLOAT) {

@@ -49,19 +49,31 @@ page("about Page", route="/about") {
         text("My win", cls="mytx")
     }
 }
-} */
+} 
 
-page("MAIN") {
+page(route="about") {
     onmount() {
         ctx = draw('hero')
         ctx.setFill("#850000ff")
         ctx.rect(10, 10, 70 ,150)
 
-        pow(9)
-        sin(2)
-        cos(56)
-        tan(89)
-        sqrt(90)
+        
+        ctx.setStroke('rgba(255, 255, 255, 0.3)')
+        ctx.lineWidth(1)
+        ctx.line(50,50, 55, 55)
+
+        
     }
     canvas("hero", height=500, width=500)
 }
+*/
+
+
+ctx = draw('hero')
+        ctx.setFill
+        ctx.rect(10, 10, 70 ,150)
+
+Platform().height = 2637
+
+h = Platform()
+

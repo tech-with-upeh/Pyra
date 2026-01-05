@@ -246,26 +246,6 @@ public:
         }, id.c_str());
     }
 
-    // void rect(size_t x, size_t y, size_t w, size_t h) {
-    //     EM_ASM({
-    //          if (document.getElementById(UTF8ToString($0))) {
-                
-    //         const ctx = document.getElementById(UTF8ToString($0)).getContext("2d");
-    //         ctx.fillRect($1, $2, $3, $4);
-    //          }
-    //     }, id.c_str(), x, y, w, h);
-    // }
-
-    // void setFill(const std::string& color) {
-    //     EM_ASM({
-    //          if (document.getElementById(UTF8ToString($0))) {
-               
-    //         const ctx = document.getElementById(UTF8ToString($0)).getContext("2d");
-    //         ctx.fillStyle = UTF8ToString($1);
-    //          }
-    //     }, id.c_str(), color.c_str());
-    // }
-
     // if i get lost
     
     void setFill(const std::string& color) {
@@ -398,6 +378,22 @@ public:
             ctx.scale($1, $2);
         }, id.c_str(), x, y);
     }
+};
+
+class Platform {
+    public:
+        int height() {
+            return EM_ASM_INT({
+                return window.innerHeight || document.documentElement.clientHeight || document.body.clientHeight;
+            });
+        }
+        int width() {
+            return EM_ASM_INT({
+                return window.innerWidth || document.documentElement.clientWidth || document.body.clientWidth;
+            });
+        }
+
+
 };
 
 // --------------------Router ------------------------------

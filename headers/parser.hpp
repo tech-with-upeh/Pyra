@@ -61,7 +61,8 @@ enum NODE_TYPE {
     NODE_TOFLOAT,
     NODE_FLOAT,
     NODE_DRAW,
-    NODE_INSTANCE
+    NODE_INSTANCE,
+    NODE_PLATFORM_CLS
 };
 
 struct AST_NODE {
@@ -124,6 +125,7 @@ string nodetostr(enum NODE_TYPE tYPE) {
         case NODE_MATH_SIN: return "MATH_SIN"; break;
         case NODE_MATH_SQRT: return "MATH_SQRT"; break;
         case NODE_MATH_TAN: return "MATH_TAN"; break;
+        case NODE_PLATFORM_CLS: return "PLATFORM_CLASS"; break;
         default: return "UNKNOWN"; break;
     }
 }
@@ -553,6 +555,8 @@ public:
                 return parseConversions(NODE_TOFLOAT);
             } else if (current->value == "draw") {
                 return parseCtx();
+            } else if (current->value == "Platform") {
+                return parsePlatform();
             }
         }
 
@@ -1035,55 +1039,10 @@ public:
         return funcNode;
     }
 
-    AST_NODE *parsepage() {
-        string *funcName = &current->value;
-        proceed(TOKEN_KEYWORD); // "page"
-        
-        AST_NODE *funcNode = new AST_NODE();
-        funcNode->TYPE = NODE_page;
-        funcNode->value = funcName;
 
-        proceed(TOKEN_LPAREN);
-        if (current->TYPE != TOKEN_RPAREN) {
-            AST_NODE *args = new AST_NODE();
-            args->TYPE = NODE_ARGS;
-
-            AST_NODE *param = new AST_NODE();
-            if (current->TYPE == TOKEN_STRING || current->TYPE == TOKEN_ID)
-            {
-                if (current->TYPE == TOKEN_STRING)
-                {
-                    param->TYPE = NODE_STRING;
-                    param->value = &current->value;
-                    param->lineno = current->lineno;
-                    param->sourceLine = current->sourceLine;
-                    param->extra = current->extra;
-                    param->charno = current->charno;
-                    proceed(TOKEN_STRING);
-                }
-                if (current->TYPE == TOKEN_ID)
-                {
-                    param->TYPE = NODE_VARIABLE;
-                    param->value = &current->value;
-                    param->lineno = current->lineno;
-                    param->sourceLine = current->sourceLine;
-                    param->extra = current->extra;
-                    param->charno = current->charno;
-                    proceed(TOKEN_ID);
-                }
-                
-            } else {
-                parserError("Unexpected in page Call : "+ current->value);
-            }
-
-
-            args->SUB_STATEMENTS.push_back(param);
-            
-
-           while (current->TYPE == TOKEN_COMMA) {
-                proceed(TOKEN_COMMA);
-
-                // Allowed parameters
+    AST_NODE *parsePageParam() {
+        cout << "passing page param" << endl;
+        // Allowed parameters
                 if (current->value != "style" &&
                     current->value != "route" &&
                     current->value != "id" &&
@@ -1171,7 +1130,70 @@ public:
                         parserError(paramName + " expects an identifier or a string literal");
                     }
                 }
+        return param;
+    }
+    AST_NODE *parsepage() {
+        string *funcName = &current->value;
+        proceed(TOKEN_KEYWORD); // "page"
+        
+        AST_NODE *funcNode = new AST_NODE();
+        funcNode->TYPE = NODE_page;
+        funcNode->value = funcName;
 
+        proceed(TOKEN_LPAREN);
+        if (current->TYPE != TOKEN_RPAREN) {
+            AST_NODE *args = new AST_NODE();
+            args->TYPE = NODE_ARGS;
+
+            AST_NODE *param = new AST_NODE();
+            if (current->TYPE == TOKEN_STRING || current->TYPE == TOKEN_ID)
+            {
+                if (current->TYPE == TOKEN_STRING)
+                {
+                    param->TYPE = NODE_STRING;
+                    param->value = &current->value;
+                    param->lineno = current->lineno;
+                    param->sourceLine = current->sourceLine;
+                    param->extra = current->extra;
+                    param->charno = current->charno;
+                    proceed(TOKEN_STRING);
+                    args->SUB_STATEMENTS.push_back(param);
+                }
+                if (current->TYPE == TOKEN_ID)
+                {
+                    cout << "idfound" << endl;
+                    if (current->value == "style" || current->value == "route" || current->value == "id" || current->value == "cls") {
+                        cout << "route-->found" << endl; 
+                        param->TYPE = NODE_STRING;
+                        param->value = new string("Create Helios App");
+                        param->lineno = current->lineno;
+                        param->sourceLine = current->sourceLine;
+                        param->extra = current->extra;
+                        param->charno = current->charno;
+                        AST_NODE *pageparam = parsePageParam();
+                        args->SUB_STATEMENTS.push_back(param);
+                        args->SUB_STATEMENTS.push_back(pageparam);
+                    } else {
+                        cout << "else-->" << endl;
+                        param->TYPE = NODE_VARIABLE;
+                        param->value = &current->value;
+                        param->lineno = current->lineno;
+                        param->sourceLine = current->sourceLine;
+                        param->extra = current->extra;
+                        param->charno = current->charno;
+                        proceed(TOKEN_ID);
+                        args->SUB_STATEMENTS.push_back(param);
+                    }   
+                }
+            } else {
+                parserError("Unexpected in page Call : "+ current->value);
+            }
+            
+
+           while (current->TYPE == TOKEN_COMMA) {
+                proceed(TOKEN_COMMA);
+
+                AST_NODE *param = parsePageParam();
                 // ───────────────────────────────────────────────────────────────
 
                 args->SUB_STATEMENTS.push_back(param);
@@ -1655,6 +1677,18 @@ public:
         return ctx;
     }
 
+    AST_NODE *parsePlatform() {
+        proceed(current->TYPE);
+        AST_NODE * ctx = new AST_NODE;
+        ctx->TYPE = NODE_PLATFORM_CLS;
+        proceed(TOKEN_LPAREN);
+        proceed(TOKEN_RPAREN);
+        if (current->TYPE == TOKEN_DOT) {
+            ctx->CHILD= parseInstancecall(&(current->value));
+        }
+        return ctx;
+    }
+
 
     std::vector<std::string> defined_keywords = { "true", "false", "null" };
     std::vector<std::string> loop_keywords = { "continue", "break", "pass" };
@@ -1827,6 +1861,8 @@ public:
                 return parseView(NODE_TEXT);
             } else if (current->value == "draw") {
                 return parseCtx();
+            } else if(current->value == "Platform") {
+                return parsePlatform();
             } else if (current->value == "canvas") {
                 return parseView(NODE_CANVAS);
             } else if (current->value == "go") {

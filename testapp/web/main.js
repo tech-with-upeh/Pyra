@@ -31,9 +31,10 @@ class Particle {
 
   draw() {
     if (this.alpha <= 0) return;
-    ctx.beginPath();
+
     ctx.strokeStyle = `rgba(255, 255, 255, ${this.alpha})`;
     ctx.lineWidth = 1;
+    ctx.beginPath();
     ctx.moveTo(this.x, this.y);
     ctx.lineTo(this.x + this.lineLength, this.y + this.lineLength);
     ctx.stroke();

@@ -2030,14 +2030,17 @@ function checkIncomingModuleAPI() {
   ignoredModuleProp('fetchSettings');
 }
 var ASM_CONSTS = {
-  83844: ($0) => { document.body.style = allocateUTF8(""); document.body.innerHTML = UTF8ToString($0); },  
- 83932: ($0) => { document.title = UTF8ToString($0); },  
- 83971: ($0) => { if (!document.getElementById("__ink_styles")) { const style = document.createElement("style"); style.id = "__ink_styles"; style.innerHTML = UTF8ToString($0); document.head.appendChild(style); } },  
- 84169: ($0, $1) => { document.body.setAttribute(UTF8ToString($0), UTF8ToString($1)); },  
- 84237: ($0, $1) => { const id = UTF8ToString($0); if (!document.getElementById(id)) { document.body.insertAdjacentHTML("beforeend", UTF8ToString($1)); } },  
- 84373: () => { Module._handleRoute(allocateUTF8(window.location.pathname)); window.addEventListener("popstate", () => { Module._handleRoute(allocateUTF8(window.location.pathname)); }); },  
- 84547: ($0, $1) => { const ctx = document.getElementById(UTF8ToString($0))?.getContext("2d"); if (!ctx) return; ctx.fillStyle = UTF8ToString($1); },  
- 84676: ($0, $1, $2, $3, $4) => { const ctx = document.getElementById(UTF8ToString($0))?.getContext("2d"); if (!ctx) return; ctx.fillRect($1, $2, $3, $4); }
+  83892: ($0) => { document.body.style = allocateUTF8(""); document.body.innerHTML = UTF8ToString($0); },  
+ 83980: ($0) => { document.title = UTF8ToString($0); },  
+ 84019: ($0) => { if (!document.getElementById("__ink_styles")) { const style = document.createElement("style"); style.id = "__ink_styles"; style.innerHTML = UTF8ToString($0); document.head.appendChild(style); } },  
+ 84217: ($0, $1) => { document.body.setAttribute(UTF8ToString($0), UTF8ToString($1)); },  
+ 84285: ($0, $1) => { const id = UTF8ToString($0); if (!document.getElementById(id)) { document.body.insertAdjacentHTML("beforeend", UTF8ToString($1)); } },  
+ 84421: () => { Module._handleRoute(allocateUTF8(window.location.pathname)); window.addEventListener("popstate", () => { Module._handleRoute(allocateUTF8(window.location.pathname)); }); },  
+ 84595: ($0, $1) => { const ctx = document.getElementById(UTF8ToString($0))?.getContext("2d"); if (!ctx) return; ctx.fillStyle = UTF8ToString($1); },  
+ 84724: ($0, $1, $2, $3, $4) => { const ctx = document.getElementById(UTF8ToString($0))?.getContext("2d"); if (!ctx) return; ctx.fillRect($1, $2, $3, $4); },  
+ 84849: ($0, $1) => { const ctx = document.getElementById(UTF8ToString($0))?.getContext("2d"); if (!ctx) return; ctx.strokeStyle = UTF8ToString($1); },  
+ 84980: ($0, $1) => { const ctx = document.getElementById(UTF8ToString($0))?.getContext("2d"); if (!ctx) return; ctx.lineWidth = $1; },  
+ 85095: ($0, $1, $2, $3, $4) => { const ctx = document.getElementById(UTF8ToString($0))?.getContext("2d"); if (!ctx) return; ctx.beginPath(); ctx.moveTo($1, $2); ctx.lineTo($3, $4); ctx.stroke(); }
 };
 
 // Imports from the Wasm binary.

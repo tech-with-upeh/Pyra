@@ -52,6 +52,7 @@ class WebEngine {
             filebuffer << "#include <iostream>\n";
             filebuffer << "#include \"vdom.hpp\"\n";
             filebuffer << "#include <format>\n";
+            filebuffer << "#include <cmath>\n";
             filebuffer << "using namespace std;\n\n";
 
             filebuffer << R"(void updateUI() {
@@ -213,7 +214,7 @@ class WebEngine {
                             ss << "\t\tpage.setTitle(\"(" << exprForNode(titleArg) << ")\");\n";
                         }
                     } else {
-                        ss << "\t\tpage.setTitle(\"Create Pyra App\");\n";
+                        ss << "\t\tpage.setTitle(\"Create Helios--> App\");\n";
                     }
 
                     if (clsparam) {
@@ -520,6 +521,43 @@ class WebEngine {
             }
             return ss.str();
         }
+
+        string makeMath(AST_NODE *p, NODE_TYPE nodetype) {
+            stringstream mathstr;
+            // std::cout << cos(23.56) << sin(34) << tan(234) << sqrt(54) << pow(12, 2);
+            switch (nodetype)
+            {
+                case NODE_MATH_COS: {
+                    mathstr << "cos(" << exprForNode(p->CHILD) << ")";
+                    break;
+                }
+                case NODE_MATH_SIN: {
+                    mathstr << "sin(" << exprForNode(p->CHILD) << ")";
+                    break;
+                }
+                case NODE_MATH_TAN: {
+                    mathstr << "tan(" << exprForNode(p->CHILD) << ")";
+                    break;
+                }
+                case NODE_MATH_SQRT: {
+                    mathstr << "sqrt(" << exprForNode(p->CHILD) << ")";
+                    break;
+                }
+                case NODE_MATH_POW: {
+                    if (p->CHILD)
+                    {
+                        mathstr << "pow(" << exprForNode(p->CHILD) << "," << exprForNode(p->CHILD) << ")";
+                    } else {
+                        mathstr << "pow(" << exprForNode(p->SUB_STATEMENTS[0]) << "," << exprForNode(p->SUB_STATEMENTS[1]) << ")";
+                    }
+                    break;
+                }
+                default:
+                    break;
+            }
+            return mathstr.str();
+        }
+
         string HandleAst(AST_NODE *p, string parent = "root", bool funcdecl=false, bool fromui = true) { 
             if (!p) return "";
              switch (p->TYPE) {
@@ -887,12 +925,6 @@ class WebEngine {
 
                 case NODE_FOR: {
                     stringstream ss;
-                    /*
-                    for (int i = 0; i < count; i++)
-                    {
-                        code
-                    }
-                    */
                    ss << "for (";
                    if (p->CHILD->TYPE == NODE_ARGS)
                    {
@@ -910,6 +942,20 @@ class WebEngine {
                    }
                    
                    ss << "}";
+                    return ss.str();
+                }
+                case NODE_MATH_COS:
+                case NODE_MATH_POW:
+                case NODE_MATH_SIN:
+                case NODE_MATH_TAN:
+                case NODE_MATH_SQRT: {
+                    stringstream ss;
+                    ss << makeMath(p, p->TYPE);
+                    if (fromui)
+                    {
+                        ss << ";";
+                    }
+                     
                     return ss.str();
                 }
                  default:
