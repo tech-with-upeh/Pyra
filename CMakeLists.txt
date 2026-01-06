@@ -6,6 +6,9 @@ set(CMAKE_CXX_STANDARD_REQUIRED ON)
 
 add_executable(helios
     main.cpp
+    src/lexer.cpp
+    src/parser.cpp
+    src/semantics.cpp
 )
 
 target_include_directories(helios
