@@ -1,4 +1,4 @@
-# Helios
+# Helios v1.0.0
 
 Helios is a full-stack framework that compiles `.ink` files into **web applications**, with future support for **Android, iOS, and desktop**.  
 It uses a custom C++ backend with Lexer, Parser, Semantic Analysis, and a Virtual DOM system for reactive UIs.
