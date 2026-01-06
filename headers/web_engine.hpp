@@ -657,6 +657,10 @@ class WebEngine {
                                 stringstream ss;
                                 ss << "Canvas2D " << *(p->value) << MakeDraw(p->CHILD, false, parent);
                                 return ss.str();
+                            } else if (dtype == NODE_PLATFORM_CLS) {
+                                stringstream ss;
+                                ss << "auto " << *(p->value) << " = " << HandleAst(p->CHILD, parent, funcdecl, false);
+                                return ss.str();
                             }
                             else {
                                 // simple assignment: type name = expr;
@@ -842,6 +846,40 @@ class WebEngine {
                         ss << "\t\t});\n";
                         return ss.str();
                     }
+
+                    if (*(p->value) == "animatefps") {
+                        stringstream ss;
+                        ss << parent << ".onAnimatefps([&";
+                        if (!statevars.empty()) {
+                            for (auto &i : statevars) {
+                                ss << ", " << i;
+                            }
+                        }
+                        ss << "]() {\n";
+                        for (auto &stmt : p->SUB_STATEMENTS) {
+                            ss << "\t\t\t" << HandleAst(stmt, parent) << "\n";
+                        }
+                        ss << "\t\t});\n";
+                        return ss.str();
+                    }
+
+                    if (*(p->value) == "listener") {
+                        stringstream ss;
+                        string eventarg = *(p->CHILD->SUB_STATEMENTS[0]->value);
+                        ss << parent << ".addevent(\"" << eventarg << "\", [&";
+                        if (!statevars.empty()) {
+                            for (auto &i : statevars) {
+                                ss << ", " << i;
+                            }
+                        }
+                        ss << "]() {\n";
+                        for (auto &stmt : p->SUB_STATEMENTS) {
+                            ss << "\t\t\t" << HandleAst(stmt, parent) << "\n";
+                        }
+                        ss << "\t\t});\n";
+                        return ss.str();
+                    }
+                    
                     stringstream ss;
                     stringstream tmpl;
                     tmpl << "";
@@ -956,6 +994,17 @@ class WebEngine {
                         ss << ";";
                     }
                      
+                    return ss.str();
+                }
+                case NODE_PLATFORM_CLS: {
+                    stringstream ss;
+                    ss << "Platform()";
+                    if (p->CHILD) {
+                        ss << "." << HandleAst(p->CHILD->CHILD,parent,funcdecl, fromui) << "()";
+                    }
+                    if(!fromui) {
+                        ss << ";";
+                    }
                     return ss.str();
                 }
                  default:

@@ -252,6 +252,10 @@ public:
         if(current->TYPE == TOKEN_DOT) {
             return parseInstancecall(buffer);
         }
+
+        // if (current->TYPE == TOKEN_PLUSOP || current->TYPE == TOKEN_MINUSOP || current->TYPE == TOKEN_DIVOP || current->TYPE == TOKEN_MULOP) {
+
+        // }
         // Otherwise assignment
         proceed(TOKEN_EQ);
         AST_NODE *node = new AST_NODE();
@@ -274,7 +278,7 @@ public:
         node->extra = current->extra;
         node->charno = current->charno;
         proceed(TOKEN_DOT);
-        node->CHILD = parseID();
+        node->CHILD = parseExpression();
         return node;
     }
 
@@ -947,7 +951,7 @@ public:
     }
     
     // ---------- FUNCTION DECLARATION ----------
-    AST_NODE *parseFunctionDecl(bool callback=false, string *funcname = nullptr) {
+    AST_NODE *parseFunctionDecl(bool callback=false, string *funcname = nullptr, int *noargs = NULL) {
        AST_NODE *funcNode = new AST_NODE();
        funcNode->TYPE = NODE_FUNCTION_DECL;
         if (!callback) {
@@ -970,7 +974,11 @@ public:
         AST_NODE *args = new AST_NODE();
         args->TYPE = NODE_ARGS;
 
+        int foundargs = 0;
         if (current->TYPE != TOKEN_RPAREN) {
+            if (*(noargs) == 0) {
+                parserError("Function '" + *(funcname) + "' doesnt require args");
+            }
             AST_NODE *param = new AST_NODE();
             param->TYPE = NODE_VARIABLE;
             param->value = &current->value;
@@ -980,7 +988,7 @@ public:
             param->charno = current->charno;
             proceed(TOKEN_ID);
             args->SUB_STATEMENTS.push_back(param);
-
+            foundargs += 1;
             while (current->TYPE == TOKEN_COMMA) {
                 proceed(TOKEN_COMMA);
                 AST_NODE *param = new AST_NODE();
@@ -992,7 +1000,13 @@ public:
                 param->charno = current->charno;
                 proceed(TOKEN_ID);
                 args->SUB_STATEMENTS.push_back(param);
+                foundargs += 1;
             }
+        }
+        if (noargs != NULL) {
+                if(foundargs != *(noargs)) {
+                    parserError("Function '"+ *(funcname) + "' expects " + to_string(*(noargs)) + " but got " + to_string(foundargs) );
+                }
         }
         funcNode->CHILD = args;
         proceed(TOKEN_RPAREN);
@@ -1684,7 +1698,8 @@ public:
         proceed(TOKEN_LPAREN);
         proceed(TOKEN_RPAREN);
         if (current->TYPE == TOKEN_DOT) {
-            ctx->CHILD= parseInstancecall(&(current->value));
+            string* buf = new string("platform");
+            ctx->CHILD= parseInstancecall(buf);
         }
         return ctx;
     }
@@ -1944,9 +1959,39 @@ public:
                 string *funcname = &current->value;
                 proceed(current->TYPE);
                 if(!ispage) {
-                    parserError("Onmount life cycle can only be called from a Page ");
+                    parserError("Onmount life cycle can only be defined in a Page ");
                 }
-                return parseFunctionDecl(true, funcname);
+                int *n = new int;
+                *n = 0;
+                return parseFunctionDecl(true, funcname, n);
+            }
+            // if(current->value == "onresize") {
+            //     string *funcname = &current->value;
+            //     proceed(current->TYPE);
+            //     if(!ispage) {
+            //         parserError("Onresize life cycle can only be defined in a Page ");
+            //     }
+            //     return parseFunctionDecl(true, funcname);
+            // }
+            if(current->value == "animatefps") {
+                string *funcname = &current->value;
+                proceed(current->TYPE);
+                if(!ispage) {
+                    parserError("Onresize life cycle can only be defined in a Page ");
+                }
+                int *n = new int;
+                *n = 0;
+                return parseFunctionDecl(true, funcname, n);
+            }
+            if(current->value == "listener") {
+                string *funcname = &current->value;
+                proceed(current->TYPE);
+                if(!ispage) {
+                    parserError("Listener life cycle can only be defined in a Page ");
+                }
+                int *n = new int;
+                *n = 1;
+                return parseFunctionDecl(true, funcname, n);
             }
             
             return parseID();

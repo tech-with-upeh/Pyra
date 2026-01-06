@@ -9,11 +9,39 @@ void updateUI() {
     if (GlobalState::getCurrentPage()) {
         GlobalState::getCurrentPage()->render();
     }
-}int main() {
-Canvas2D ctx(string("hero"));
-ctx.    int setFill = 90;
-ctx.rect(10,10,70,150);
-    auto h = ;
+}
+auto page_1 = make_shared<VPage>();
+int main() {
+	Router::add("/about",page_1);
+	page_1->builder = [&](VPage& page) {
+		page.setTitle("Create Helios App");
+
+		auto h = Platform().height();
+		auto w = Platform().width();
+		page.onMount([&]() {
+			Canvas2D ctx(string("hero"));
+			ctx.setStroke(string("rgba(255, 255, 255, 0.3)"));
+			ctx.lineWidth(1);
+			ctx.line(50,50,55,55);
+		});
+
+		page.onAnimatefps([&]() {
+				cout << string("resized") << endl;
+		});
+
+		page.addevent("mousemove", [&]() {
+				cout << string("kk") << endl;
+		});
+
+		
+	VNode canvas_1("canvas");
+		canvas_1.type = VNodeType::CANVAS;
+		canvas_1.setAttr("id", "hero");
+		canvas_1.height = h;
+		canvas_1.width = w;
+
+	page.addChild(canvas_1);
+		};
 	EM_ASM({
 		Module._handleRoute(allocateUTF8(window.location.pathname));
 		window.addEventListener("popstate", () => {

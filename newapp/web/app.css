@@ -1,6 +1,7 @@
 #include <iostream>
 #include "vdom.hpp"
 #include <format>
+#include <cmath>
 using namespace std;
 
 void updateUI() {
@@ -11,96 +12,43 @@ void updateUI() {
 }
 auto page_1 = make_shared<VPage>();
 
-auto page_2 = make_shared<VPage>();
 int main() {
-	Router::add("/abt",page_1);
-	Router::add("/",page_2);
-    string ht = "100px";
-	string uni = R"(
-		.body{ 
-			height : )" +ht+ R"(;
-			width : 100px;
-		}	.btn{ 
-			height : 100px;
-			color : red;
-		}
-		@media only screen and (min-width: 600px) {
-				.btn{ 
-			height : 50px;
-			color : yellow;
-		}
-		}
-)";
-	
-	page_1->builder = [&, uni, ht](VPage& page) {
-		page.addStyle(uni);
-		page.setTitle("HOME PAGE");
-		page.bodyAttrs["style"] = "background-color:black;padding:0px;margin:0px;color:white;";
+	Router::add("/",page_1);
+	page_1->builder = [&](VPage& page) {
+		page.setTitle("Create Helios App");
 
-		    int vsr = 0;
+		auto h = Platform().height();
+		auto w = Platform().width();
+		page.onMount([&]() {
+			Canvas2D ctx(string("hero"));
+			ctx.setFill(string("#850000ff"));
+			ctx.rect(10,10,70,150);
+			ctx.setStroke(string("rgba(255, 255, 255, 0.3)"));
+			ctx.lineWidth(1);
+			ctx.line(50,50,55,55);
+		});
+
+		page.onAnimatefps([](){
+			cout << "fps" << endl;
+		});
+		// page.addevent("mousemove", [&] () {
+		// 	cout << 3 << endl;
+		// });
+
 		
-	auto num = make_shared<appstate::State<int>>("num",0);
 		
-	auto mytext = make_shared<appstate::State<string>>("mytext","Click me and check console!");
-		
-	VNode view_1("div");
-	view_1.setAttr("id", "mydiv");
-	view_1.onClick([num, mytext]() {
-			num->set((num->get() + 1));
-			mytext->set("Clicked!!");
-			cout << num->get() << endl;
-		updateUI();	});
-	view_1.setAttr("style", "height:50px;background-color:green;");
+	VNode canvas_1("canvas");
+		canvas_1.type = VNodeType::CANVAS;
+		canvas_1.setAttr("id", "hero");
+		canvas_1.height = h;
+		canvas_1.width = w;
 
-	VNode text_1("p",mytext->get());
-	text_1.setAttr("style", "text-align:center;margin:0px;");
-
-	view_1.addChild(text_1);
-	page.addChild(view_1);
-		
-	VNode view_3("div");
-	view_3.setAttr("id", "countdiv");
-	view_3.setAttr("style", "margin-top:20px;font-size:20px;");
-
-	VNode text_3("p","go to about");
-	text_3.setAttr("class",  "btn");
-	text_3.onClick([]() {
-		Router::go("/");
-		updateUI();	});
-
-	view_3.addChild(text_3);
-	page.addChild(view_3);
-		};
-	page_2->builder = [&, uni, ht](VPage& page) {
-		page.addStyle(uni);
-		page.setTitle("about");
-
-		    string inpage = "sdkd";
-		
-	VNode text_5("p","This is the Ho.");
-	text_5.setAttr("class",  "btn");
-
-	VNode canvas("canvas");
-	canvas.type = VNodeType::CANVAS;
-	canvas.setAttr("id", "hero");
-	canvas.height = 300;
-	canvas.width = 400;
-
-page.addChild(canvas);
-
-page.onMount([]() {
-	Canvas2D ctx("hero");
-	ctx.setFill("green");
-	ctx.rect(10, 10, 100, 150);
-});
-
-
-	page.addChild(text_5);
+	page.addChild(canvas_1);
 		};
 	EM_ASM({
 		Module._handleRoute(allocateUTF8(window.location.pathname));
 		window.addEventListener("popstate", () => {
-		Module._handleRoute(allocateUTF8(window.location.pathname));
+			Module._handleRoute(allocateUTF8(window.location.pathname));
 		});
 	});return 0;
 }

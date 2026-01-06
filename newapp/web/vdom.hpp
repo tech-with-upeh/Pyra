@@ -190,6 +190,10 @@ struct VPage {
 
     std::function<void(VPage&)> builder; 
     std::vector<std::function<void()>> onMount_list;
+    bool reqanimate = false;
+    std::function<void()> onanimate;
+    std::unordered_map<std::string, std::function<void()>> page_callbacks;
+
     
     // Helper methods
     VPage& setTitle(const std::string& newTitle) {
@@ -227,6 +231,14 @@ struct VPage {
     }
     void onMount(std::function<void()> fn) {
         onMount_list.push_back(fn);
+    }
+
+    void onAnimatefps(std::function<void()> fn) {
+        reqanimate = true;
+        onanimate = fn;
+    }
+    void addevent(std::string event, std::function<void()> fn) {
+        page_callbacks[event] = fn;
     }
 };
 
@@ -548,6 +560,42 @@ extern "C" {
             }
         }, id, html);
     }
+
+    EMSCRIPTEN_KEEPALIVE
+    void animatefps() {
+        GlobalState::getCurrentPage()->onanimate();
+    }
+
+    EMSCRIPTEN_KEEPALIVE
+    void js_reqfps() { 
+        EM_ASM({
+            function rafLoop() {
+                Module._animatefps();
+                requestAnimationFrame(rafLoop);
+            }
+            requestAnimationFrame(rafLoop);
+        });
+    }
+
+    EMSCRIPTEN_KEEPALIVE
+    void handleEvent(const char* event) {
+        auto it = GlobalState::getCurrentPage()->page_callbacks.find(event);
+
+        if (it != GlobalState::getCurrentPage()->page_callbacks.end()) {
+            it->second();
+        }
+    }
+
+    EMSCRIPTEN_KEEPALIVE
+    void js_addpageEventlisteners(const char* event) {
+        EM_ASM({
+            window.addEventListener(UTF8ToString($0), function () {
+			    Module._handleEvent($0);
+		    });
+        }, event);
+
+        std::cout << event << std::endl;
+    }
 }
 
 // -------------------- Render VNode to HTML --------------------
@@ -627,5 +675,11 @@ inline void renderPage(VPage& page) {
     }
     for (auto& fn : page.onMount_list) {
         fn();
+    }
+    if (page.reqanimate) {
+        js_reqfps();
+    }
+    for(const auto& k : page.page_callbacks) {
+        js_addpageEventlisteners(k.first.c_str());
     }
 }

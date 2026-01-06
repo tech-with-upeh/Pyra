@@ -46,7 +46,7 @@ struct CallableInfo {
 };
 
 struct InstanceInfo {
-    std::unordered_map<std::string, CallableInfo> callables; // 
+    std::unordered_map<std::string, CallableInfo> callables; //
     bool issystemdefined;
 };
 
@@ -59,6 +59,8 @@ public:
         calledFunctions.clear();
         pagescope.clear();
         instances.clear();
+
+        instances["platform"] =  {platform_callables, true};
 
         // Pass 1: Analyze all statements
         for (auto stmt : root->SUB_STATEMENTS) {
@@ -103,7 +105,8 @@ private:
     };
 
     std::unordered_map<std::string, CallableInfo> platform_callables = {
-        {"height",{{}, true, false, TYPE_INT}}
+        {"height",{{}, true, false, TYPE_INT}},
+        {"width",{{}, true, false, TYPE_INT}}
     };
 
 
@@ -140,12 +143,12 @@ private:
                 {
                     parserError("Variables don't match '" + *(node->SUB_STATEMENTS[0]->value) + "'" + "  &  " + "'" + *(node->SUB_STATEMENTS[1]->value) + "' doesnt match!.", node);
                 }
-                
+
                 return TYPE_BOOL;
             }
             case NODE_FLOAT:
                 return TYPE_FLOAT;
-            
+
             case NODE_DICT: {
                 for (const auto& i : node->SUB_STATEMENTS)
                 {
@@ -161,16 +164,16 @@ private:
                                 }
                             }  else {
                                  VarType rhsType = checkNode(i->SUB_STATEMENTS[0]);
-                            }            
+                            }
                         }
                     }
-                    
+
                     if (i->SUB_STATEMENTS[1]->TYPE == NODE_VARIABLE)
                     {
                         VarType rhsType = checkNode(i->SUB_STATEMENTS[1]);
                     }
                 }
-                
+
                 return TYPE_DICT;
             }
 
@@ -197,11 +200,11 @@ private:
                     // variable usage
                     auto it = scope.find(name);
                     auto st = statevars.find(name);
-                    
-                    if(st == statevars.end()) { 
+
+                    if(st == statevars.end()) {
                         if(it == scope.end()) {
                             parserError("Variable '" + name + "' used before assignment.", node);
-                        } 
+                        }
                     }
                     if (st != statevars.end()) {
                         return statevars[name].type;
@@ -209,7 +212,7 @@ private:
                    if (it != scope.end()) {
                         return scope[name].type;
                    }
-                   
+
                 }
             }
             case NODE_page: {
@@ -220,7 +223,7 @@ private:
                     {
                        parserError("Title can only be a string but got: '" + *(node->CHILD->SUB_STATEMENTS[0]->value) + "'", node->CHILD->SUB_STATEMENTS[1]);
                     }
-                   
+
                     bool isindex = false;
                     if (node->CHILD->SUB_STATEMENTS.size() > 1)
                     {
@@ -228,7 +231,7 @@ private:
                         {
                             AST_NODE* it_node = *it;
                             cout << *(it_node->value) << endl;
-                            if(*(it_node->value) == "route") {                              
+                            if(*(it_node->value) == "route") {
                                 if (*(it_node->CHILD->value) == "/")
                                 {
                                     isindex = true;
@@ -244,7 +247,7 @@ private:
                                 } else {
                                     parserError("Route '" + *(it_node->CHILD->value) + "' already: '" + checkroute->second.title + "'", node->CHILD->SUB_STATEMENTS[0]);
                                 }
-                                
+
                             }
                             VarType node2 = checkNode(it_node->CHILD, true);
                             if (node2 != TYPE_DICT && node2 != TYPE_STRING)
@@ -256,19 +259,19 @@ private:
                             auto pagesc = pagescope.find("/");
                             if (pagesc == pagescope.end()) {
                                 pagescope["/"] = {*(node->CHILD->SUB_STATEMENTS[0]->value), true};
-                            } else {          
+                            } else {
                                 parserError("Index page already defined: '" + pagesc->second.title + "'", node->CHILD->SUB_STATEMENTS[0]);
-                            } 
+                            }
                         }
-                            
+
                     } else {
                         auto pagesc = pagescope.find("/");
-                        
+
                         if (pagesc == pagescope.end()) {
                             pagescope["/"] = {*(node->CHILD->SUB_STATEMENTS[0]->value), true};
-                        } else {          
+                        } else {
                             parserError("Index page already defined as: '" + pagesc->second.title + "'", node->CHILD->SUB_STATEMENTS[0]);
-                        }      
+                        }
                     }
                 }
                 if (!node->SUB_STATEMENTS.empty())
@@ -292,13 +295,13 @@ private:
             case NODE_IMAGE:
             case NODE_VIEW: {
                 if (node->CHILD) {
-                    
+
                     VarType node1 = checkNode(node->CHILD->SUB_STATEMENTS[0]);
                     if (node1 != TYPE_STRING)
                     {
                        parserError("Title can only be a string but got: '" + *(node->CHILD->SUB_STATEMENTS[0]->value) + "'", node->CHILD->SUB_STATEMENTS[0]);
                     }
-                    
+
                     if (node->CHILD->SUB_STATEMENTS.size() > 1)
                     {
                         for (auto it = node->CHILD->SUB_STATEMENTS.begin() +1; it != node->CHILD->SUB_STATEMENTS.end(); ++it)
@@ -353,7 +356,7 @@ private:
             case NODE_FUNCTION_DECL: {
                 std::string name = *node->value;
                 declaredFunctions[name] = {TYPE_FUNCTION, true};
-                
+
                 // Register arguments in scope
                 if (node->CHILD && node->CHILD->TYPE == NODE_ARGS) {
                     for (auto param : node->CHILD->SUB_STATEMENTS) {
@@ -363,11 +366,11 @@ private:
 
                             auto it = scope.find(name);
                             auto st = statevars.find(name);
-                                
-                                if(st == statevars.end()) { 
+
+                                if(st == statevars.end()) {
                                     if(it == scope.end()) {
                                         parserError("Variable '" + name + "' used before assignment.", param);
-                                    } 
+                                    }
                                 }
                             if (it != scope.end()) {
                                     return scope[name].type;
@@ -380,7 +383,7 @@ private:
                         {
                             if (param->TYPE == NODE_VARIABLE) {
                              std::string paramName = *param->value;
-                             scope[paramName] = {TYPE_UNKNOWN, true}; 
+                             scope[paramName] = {TYPE_UNKNOWN, true};
                         }
                         }
                     }
@@ -414,6 +417,7 @@ private:
             case NODE_RETURN:
             case NODE_PRINT:
             case NODE_GO:
+            case NODE_PLATFORM_CLS:
             case NODE_DRAW:
             case NODE_TYPE_CHECK:
                 if (node->CHILD) {
@@ -443,11 +447,11 @@ private:
                     if (node->TYPE == NODE_TOSTR) {
                         return TYPE_STRING;
                     }
-                } 
-                
+                }
+
                 return TYPE_FUNCTION;
 
-            
+
 
             // If / While / For blocks
             case NODE_IF: {
@@ -514,13 +518,64 @@ private:
                 if (node->CHILD) {
                     auto& secondinstance = it->second;
                     auto& calls = secondinstance.callables;
-                
+
+                    if(node->CHILD->TYPE == NODE_BINARY_OP) {
+                        auto ch = calls.find(*(node->CHILD->SUB_STATEMENTS[0]->value));
+                        if (ch == calls.end()) {
+                            parserError("'"+ *(node->value) +"' Has no member '"+ *(node->CHILD->SUB_STATEMENTS[0]->value) +"'", node->CHILD);
+                        }
+
+
+                        if (ch->second.isVariadic) {
+                                if(node->CHILD->SUB_STATEMENTS[0]->TYPE != NODE_FUNCTION_CALL) {
+                                    parserError("'" + *(node->CHILD->SUB_STATEMENTS[0]->value) + "' is callable!", node->CHILD);
+                                }
+                        } else {
+                            if(node->CHILD->SUB_STATEMENTS[0]->TYPE == NODE_FUNCTION_CALL) {
+                                parserError("'" + *(node->CHILD->SUB_STATEMENTS[0]->value) + "' is Not callable!", node->CHILD);
+
+                            }
+                        }
+                        // ch.second.returnType
+                        VarType cls = ch->second.returnType;
+                        if(cls == TYPE_STRING && node->CHILD->SUB_STATEMENTS[1]->TYPE != NODE_STRING) {
+                            parserError("Type Mismatch, can't perfom binary Operation on given types", node->CHILD);
+                        }
+
+                        if(cls == TYPE_INT) {
+                            if(node->CHILD->SUB_STATEMENTS[1]->TYPE != NODE_FLOAT) {
+                                if(node->CHILD->SUB_STATEMENTS[1]->TYPE != NODE_INT) {
+                                    parserError("Type Mismatch, can't perfom binary Operation on given types", node->CHILD);
+                                }
+                            }
+                        }
+                        //if i get lost
+                        if(cls == TYPE_STRING) {
+                            return TYPE_STRING;
+                        }
+                        return TYPE_FLOAT;
+                    }
                     auto ch = calls.find(*(node->CHILD->value));
                     if (ch == calls.end()) {
                         parserError("'"+ *(node->value) +"' Has no member '"+ *(node->CHILD->value) +"'", node->CHILD);
-                    } 
+                    }
                     if(node->CHILD->SUB_STATEMENTS.empty()) {
-                        std::cout << "-->" << ch->second.args.size() << std::endl;
+                        if (ch->second.isVariadic) {
+                            if(node->CHILD->TYPE != NODE_FUNCTION_CALL) {
+                                parserError("'" + *(node->CHILD->value) + "' is callable!", node->CHILD);
+                            }
+                        } else {
+                            if (secondinstance.issystemdefined) {
+                                if (node->CHILD->CHILD)
+                                {
+                                    parserError("'" + *(node->CHILD->value) + "' is not assignable", node->CHILD);
+                                }
+
+                            }
+                            if(node->CHILD->TYPE == NODE_FUNCTION_CALL) {
+                                parserError("'" + *(node->CHILD->value) + "' is not Callable", node->CHILD);
+                            }
+                        }
                     } else {
                         if (node->CHILD->SUB_STATEMENTS.size() != ch->second.args.size()) {
                             parserError("'"+ *(node->CHILD->value) +"' was expecting '"+ to_string(ch->second.args.size()) +" arguments but got: " + to_string(node->CHILD->SUB_STATEMENTS.size()), node->CHILD);
@@ -535,7 +590,7 @@ private:
                                 {
                                     parserError("'" + *(node->CHILD->value) + "' is not assignable", node->CHILD);
                                 }
-                                
+
                             }
                         }
 
@@ -553,11 +608,13 @@ private:
                             }
                         }
                     }
+                    return ch->second.returnType;
                 }
+                
                 return TYPE_FUNCTION;
             }
             case NODE_MATH_POW: {
-                if (node->CHILD) 
+                if (node->CHILD)
                 {
                     VarType arg = checkNode(node->CHILD, uiexceptonstylsheet, funcdecl,isfrompage);
                     if (arg != TYPE_INT && arg != TYPE_FLOAT) {
@@ -570,7 +627,7 @@ private:
                     VarType arg = checkNode(i, uiexceptonstylsheet, funcdecl,isfrompage);
                     if (arg != TYPE_INT && arg != TYPE_FLOAT) {
                         parserError("power only--accepts number but got "+ nodetostr(i->TYPE), i);
-                    }   
+                    }
                 }
                 return TYPE_FLOAT;
             }
