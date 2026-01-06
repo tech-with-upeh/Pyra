@@ -1,3 +1,4 @@
+#pragma once
 #include <iostream>
 #include <fstream>
 #include <filesystem>
@@ -45,7 +46,8 @@ class WebEngine {
                 cerr << "Error unknown Type\n";
                 break;
             }
-            return "ERROR";
+            
+            return "//error";
         }
 
         bool gen(AST_NODE *root) {

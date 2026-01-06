@@ -7,3 +7,12 @@ wed/
 test.cpp
 *.exe
 Pyra-vscode-ext/
+/build/
+/CMakeCache.txt
+/CMakeFiles/
+/Makefile
+/*.cmake
+/*.exe
+/*.obj
+/*.o
+/*.log

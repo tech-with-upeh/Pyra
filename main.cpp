@@ -8,11 +8,11 @@
 #include <cstdlib>
 #include <cstring>
 
-#include "include/lexer.hpp"
-#include "include/parser.hpp"
-#include "include/astvisualise.hpp"
-#include "include/semantics.hpp"
-#include "include/web_engine.hpp"
+#include "lexer.hpp"
+#include "parser.hpp"
+#include "astvisualise.hpp"
+#include "semantics.hpp"
+#include "web_engine.hpp"
 
 
 using namespace std;
