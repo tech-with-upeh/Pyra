@@ -62,13 +62,13 @@ string nodetostr(enum NODE_TYPE tYPE) {
 
 
 Parser::Parser(vector<Token *> tokens) 
-    : parserTokens(tokens),
-    limit(parserTokens.size()),
-    index(0),
-    current(parserTokens.at(index)),
-    defined_keywords({ "true", "false", "null" }),
-    loop_keywords({ "continue", "break", "pass" })
 {
+    parserTokens = tokens,
+    limit = parserTokens.size(),
+    index = 0,
+    current = parserTokens.at(index),
+    defined_keywords = { "true", "false", "null" },
+    loop_keywords = { "continue", "break", "pass" };
 }
 
 
@@ -254,6 +254,10 @@ Parser::Parser(vector<Token *> tokens)
     AST_NODE *Parser::parseDict(bool styleparse) {
         AST_NODE* objNode = new AST_NODE();
             objNode->TYPE = NODE_DICT;
+            objNode->charno = current->charno;
+            objNode->lineno = current->lineno;
+            objNode->sourceLine = current->sourceLine;
+            objNode->extra = current->extra;
             if (current->TYPE == TOKEN_HASH)
             {
                 objNode->value = &(current->value);
@@ -356,6 +360,10 @@ Parser::Parser(vector<Token *> tokens)
         proceed(TOKEN_KEYWORD);
         AST_NODE *node = new AST_NODE();
         node->TYPE = nodetype;
+        node->charno = current->charno;
+        node->lineno = current->lineno;
+        node->sourceLine = current->sourceLine;
+        node->extra = current->extra;
         proceed(TOKEN_LPAREN);
         // node->CHILD = parseComparison();
         switch (nodetype) {
@@ -762,6 +770,10 @@ Parser::Parser(vector<Token *> tokens)
     AST_NODE *Parser::parseWhile() {
         AST_NODE *whileNode = new AST_NODE();
         whileNode->TYPE = NODE_WHILE;
+        whileNode->charno = current->charno;
+        whileNode->lineno = current->lineno;
+        whileNode->sourceLine = current->sourceLine;
+        whileNode->extra = current->extra;
         proceed(TOKEN_KEYWORD);
 
         if (current->TYPE == TOKEN_LPAREN)
@@ -794,6 +806,10 @@ Parser::Parser(vector<Token *> tokens)
     AST_NODE *Parser::parseFor() {
         AST_NODE *forNode = new AST_NODE();
         forNode->TYPE = NODE_FOR;
+        forNode->charno = current->charno;
+        forNode->lineno = current->lineno;
+        forNode->sourceLine = current->sourceLine;
+        forNode->extra = current->extra;
 
         proceed(TOKEN_KEYWORD);
 
@@ -858,6 +874,10 @@ Parser::Parser(vector<Token *> tokens)
             node->TYPE = Tokentype;
             node->value = new string(current->value);
             node->charno = current->charno;
+            node->charno = current->charno;
+            node->lineno = current->lineno;
+            node->sourceLine = current->sourceLine;
+            node->extra = current->extra;
             return node;
     }
 
@@ -988,7 +1008,6 @@ Parser::Parser(vector<Token *> tokens)
 
 
     AST_NODE *Parser::parsePageParam() {
-        cout << "passing page param" << endl;
         // Allowed parameters
                 if (current->value != "style" &&
                     current->value != "route" &&
@@ -1108,9 +1127,7 @@ Parser::Parser(vector<Token *> tokens)
                 }
                 if (current->TYPE == TOKEN_ID)
                 {
-                    cout << "idfound" << endl;
                     if (current->value == "style" || current->value == "route" || current->value == "id" || current->value == "cls") {
-                        cout << "route-->found" << endl; 
                         param->TYPE = NODE_STRING;
                         param->value = new string("Create Helios App");
                         param->lineno = current->lineno;
@@ -1121,7 +1138,6 @@ Parser::Parser(vector<Token *> tokens)
                         args->SUB_STATEMENTS.push_back(param);
                         args->SUB_STATEMENTS.push_back(pageparam);
                     } else {
-                        cout << "else-->" << endl;
                         param->TYPE = NODE_VARIABLE;
                         param->value = &current->value;
                         param->lineno = current->lineno;
@@ -1581,6 +1597,10 @@ Parser::Parser(vector<Token *> tokens)
         proceed(current->TYPE);
         AST_NODE * ctx = new AST_NODE;
         ctx->TYPE = NODE_DRAW;
+        ctx->charno = current->charno;
+        ctx->lineno = current->lineno;
+        ctx->sourceLine = current->sourceLine;
+        ctx->extra = current->extra;
         proceed(TOKEN_LPAREN);
         if (current->TYPE == TOKEN_RPAREN) {
             parserError("Please Pass An ID");
@@ -1621,6 +1641,7 @@ Parser::Parser(vector<Token *> tokens)
 
         }
         proceed(TOKEN_RPAREN);
+
         return ctx;
     }
 
@@ -1628,12 +1649,17 @@ Parser::Parser(vector<Token *> tokens)
         proceed(current->TYPE);
         AST_NODE * ctx = new AST_NODE;
         ctx->TYPE = NODE_PLATFORM_CLS;
+        ctx->charno = current->charno;
+        ctx->lineno = current->lineno;
+        ctx->sourceLine = current->sourceLine;
+        ctx->extra = current->extra;
         proceed(TOKEN_LPAREN);
         proceed(TOKEN_RPAREN);
         if (current->TYPE == TOKEN_DOT) {
             string* buf = new string("platform");
             ctx->CHILD= parseInstancecall(buf);
         }
+        
         return ctx;
     }
 
@@ -1655,6 +1681,10 @@ Parser::Parser(vector<Token *> tokens)
             AST_NODE *node = new AST_NODE();
             node->TYPE = NODE_RETURN;
             node->CHILD = parseComparison();
+            node->charno = current->charno;
+            node->lineno = current->lineno;
+            node->sourceLine = current->sourceLine;
+            node->extra = current->extra;
             return node;
             } else if (current->value == "print") {
                 proceed(TOKEN_KEYWORD);
@@ -1859,9 +1889,9 @@ Parser::Parser(vector<Token *> tokens)
         proceed(TOKEN_COLON);
         node->CHILD = parseComparison();
         node->charno = current->charno;
-         node->lineno = current->lineno;
-            node->sourceLine = current->sourceLine;
-           node->extra = current->extra;
+        node->lineno = current->lineno;
+        node->sourceLine = current->sourceLine;
+        node->extra = current->extra;
         
         return node;
     }

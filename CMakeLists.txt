@@ -9,11 +9,13 @@ add_executable(helios
     src/lexer.cpp
     src/parser.cpp
     src/semantics.cpp
+    src/webengine/webengine.cpp
 )
 
 target_include_directories(helios
     PRIVATE
         ${PROJECT_SOURCE_DIR}/include
+        ${PROJECT_SOURCE_DIR}/include/web
 )
 
 # Optional: warnings (safe)

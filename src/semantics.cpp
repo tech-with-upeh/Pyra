@@ -177,7 +177,6 @@ VarType SemanticAnalyzer::checkNode(AST_NODE *node, bool uiexceptonstylsheet, bo
             }
         }
         case NODE_page: {
-            cout << "Semantic Check on page() Node\n";
             if (node->CHILD) {
                 VarType node1 = checkNode(node->CHILD->SUB_STATEMENTS[0]);
                 if (node1 != TYPE_STRING)
@@ -191,7 +190,6 @@ VarType SemanticAnalyzer::checkNode(AST_NODE *node, bool uiexceptonstylsheet, bo
                     for (auto it = node->CHILD->SUB_STATEMENTS.begin() +1; it != node->CHILD->SUB_STATEMENTS.end(); ++it)
                     {
                         AST_NODE* it_node = *it;
-                        cout << *(it_node->value) << endl;
                         if(*(it_node->value) == "route") {
                             if (*(it_node->CHILD->value) == "/")
                             {
@@ -203,7 +201,6 @@ VarType SemanticAnalyzer::checkNode(AST_NODE *node, bool uiexceptonstylsheet, bo
                             }
                             auto checkroute = pagescope.find(*(it_node->CHILD->value));
                             if (checkroute == pagescope.end()) {
-                                cout << "I---> " << *(it_node->CHILD->value) << endl;
                                 pagescope[*(it_node->CHILD->value)] = {*(node->CHILD->SUB_STATEMENTS[0]->value), isindex};
                             } else {
                                 parserError("Route '" + *(it_node->CHILD->value) + "' already: '" + checkroute->second.title + "'", node->CHILD->SUB_STATEMENTS[0]);
@@ -330,7 +327,7 @@ VarType SemanticAnalyzer::checkNode(AST_NODE *node, bool uiexceptonstylsheet, bo
 
                             if(st == statevars.end()) {
                                 if(it == scope.end()) {
-                                    parserError("Variable '" + name + "' used before assignment.", param);
+                                    parserError("Variable '" + name + "' used before assignment.", node);
                                 }
                             }
                         if (it != scope.end()) {

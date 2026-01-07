@@ -96,34 +96,28 @@ Lexer::Lexer(std::string sourceCode)
         "img", "canvas" , "input", "state", "go", "stylesheet", 
         "to_int", "to_str", "to_float", "draw", "sin", "sqrt", 
         "cos", "tan", "pow", "Platform"
-      }),
-      source(sourceCode),
-      cursor(0),
-      size(sourceCode.size()),
-      linenum(1),
-      charnum(1),
-      currentLine(),
-      ctrl(false)
+      })
 {
-    // source = sourceCode;
-    // cursor = 0;
-    // size = source.size();
-    // current = (size > 0) ? source.at(cursor) : '\0';
-    // linenum = 1;
-    // charnum = 1;
-    // currentLine = std::stringstream();
-    // ctrl = false;
+    source = sourceCode;
+    cursor = 0;
+    size = sourceCode.size();
+    current = (size > 0) ? source.at(cursor) : '\0';
+    linenum = 1;
+    charnum = 1;
+    currentLine = std::stringstream();
+    ctrl = false;
 }
 
 char Lexer::advance()
 {
+
     if (cursor < size)
     {
         currentLine << current;
         char temp = current;
         cursor++;
         charnum++;
-        current = (cursor < size) ? source.at(cursor) : '\0';
+        current = (cursor < size ) ? source.at(cursor) : '\0';
         return temp;
     }
     else
@@ -269,7 +263,6 @@ Token * Lexer::tokenizeSTR(enum Tokentype TYPE)
 std::vector<Token *> Lexer::tokenize()
 {
     std::vector<Token *> tokens;
-    
     bool noteof = true;
     while (cursor < size && noteof)
     {
@@ -288,171 +281,172 @@ std::vector<Token *> Lexer::tokenize()
         
         switch (current)
         {
-        case '=':
-            {
-                    if (peak(1) == '=') {
-                        tokens.push_back(tokenizeOP(TOKEN_EQOP, '='));
+            case '=':
+                {
+                        if (peak(1) == '=') {
+                            tokens.push_back(tokenizeOP(TOKEN_EQOP, '='));
+                            break;
+                            continue;
+                        } else {
+                            tokens.push_back(tokenizespecial(TOKEN_EQ));
+                        
+                        }
                         break;
-                        continue;
-                    } else {
-                        tokens.push_back(tokenizespecial(TOKEN_EQ));
-                    
-                    }
-                    break;
-                } 
-        
-            case '(':
-            {tokens.push_back(tokenizespecial(TOKEN_LPAREN));
-            break;}
+                    } 
+            
+                case '(':
+                {tokens.push_back(tokenizespecial(TOKEN_LPAREN));
+                break;}
 
-            case ')':
-            {tokens.push_back(tokenizespecial(TOKEN_RPAREN));
-            break;}
-        case '.':
-                {tokens.push_back(tokenizespecial(TOKEN_DOT));
+                case ')':
+                {tokens.push_back(tokenizespecial(TOKEN_RPAREN));
                 break;}
-        case '"':
-                {tokens.push_back(tokenizeSTR(TOKEN_QUOTE));
-                break;}
-        case '\'':
-                {tokens.push_back(tokenizeSTR(TOKEN_SINGLEQUOTE));
-                break;}
-        case '&':
-                {tokens.push_back(tokenizespecial(TOKEN_ANDSYM));
-                break;}
-        case '+':
-                {
-                    if (peak(1) == '+') {
-                        tokens.push_back(tokenizeOP(TOKEN_INCREMENT, '+'));
-                        break;
-                        continue;
-                    } else {
-                        tokens.push_back(tokenizespecial(TOKEN_PLUSOP));
-
-                    }
-                    break;
-                }
-        case '-':
-                {
-                    if (peak(1) == '=') {
-                        tokens.push_back(tokenizeOP(TOKEN_DECREMENT, '-'));
-                        break;
-                        continue;
-                    } else {
-                        tokens.push_back(tokenizespecial(TOKEN_MINUSOP));
-                        advance(); // consume '='
-                    }
-                    break;
-                }
-        case '*':
-                {tokens.push_back(tokenizespecial(TOKEN_MULOP));
-                break;}
-        case '/':
-                {tokens.push_back(tokenizespecial(TOKEN_DIVOP));
-                break;}
-        case '\\':
-                {tokens.push_back(tokenizeSTR(TOKEN_BACKLASH));
-                break;}
-        case '#':
-                {tokens.push_back(tokenizespecial(TOKEN_HASH));
-                break;}
-        case '@':
-                {tokens.push_back(tokenizespecial(TOKEN_ATSYM)); 
-                break;}
-        case '!':
-                {
-                    if (peak(1) == '=') {
-                        tokens.push_back(tokenizeOP(TOKEN_NEQOP, '='));
-                        break;
-                        continue;
-                    } else {
-                        tokens.push_back(tokenizespecial(TOKEN_NOTOP));
-                        advance(); // consume '='
-                    }
-                    break;
-                } 
-        case '>':
-                {
-                    if (peak(1) == '=') {
-                        tokens.push_back(tokenizeOP(TOKEN_GTE, '='));
-                        break;
-                        continue;
-                    } else {
-                        tokens.push_back(tokenizespecial(TOKEN_GT));
-                        advance(); // consume '='
-                    }
-                    break;
-                }
-        case '<':
-                {
-                    if (peak(1) == '=') {
-                        tokens.push_back(tokenizeOP(TOKEN_LTE, '='));
-                        break;
-                        continue;
-                    } else {
-                        tokens.push_back(tokenizespecial(TOKEN_LT));
-                        advance(); // consume '='
-                    }
-                    break;
-                }
-        case '{':
-                {tokens.push_back(tokenizespecial(TOKEN_LBRACE));
-                break;}
-        case '}':
-                {tokens.push_back(tokenizespecial(TOKEN_RBRACE));
-                break;}
-        case '[':
-                {tokens.push_back(tokenizespecial(TOKEN_LBRACKET));
-                break;}
-        case ']':
-                {tokens.push_back(tokenizespecial(TOKEN_RBRACKET));
-                break;}
-        case ',':
-                {tokens.push_back(tokenizespecial(TOKEN_COMMA));
-                break;}
-        case ':':
-                {tokens.push_back(tokenizespecial(TOKEN_COLON));
-                break;}
-        case '\n':
-                {
-                    tokens.push_back(tokenizespecial(TOKEN_NEWLINE));
-                    linenum++;
-                    charnum = 1;
-                    
-                    currentLine = std::stringstream();
-                    
-                    break;
-                }
-        case '\0':
-                {Token * newtoken = new Token();
-                    newtoken->TYPE = TOKEN_EOF;
-                    newtoken->value = "EOF";
-                    newtoken->lineno = linenum;
-                    newtoken->sourceLine = currentLine.str();
-    newtoken->charno = charnum;
-                    tokens.push_back(newtoken);
-                    noteof = false;
+            case '.':
+                    {tokens.push_back(tokenizespecial(TOKEN_DOT));
                     break;}
-        
-        default:
-            {
-            currentLine << current;
-            charnum++;
-            std::cerr << "\nParserError: " << "Unknown character: "
-            << " at line " << linenum
-            << ", column " << charnum << "\n";
+            case '"':
+                    {tokens.push_back(tokenizeSTR(TOKEN_QUOTE));
+                    break;}
+            case '\'':
+                    {tokens.push_back(tokenizeSTR(TOKEN_SINGLEQUOTE));
+                    break;}
+            case '&':
+                    {tokens.push_back(tokenizespecial(TOKEN_ANDSYM));
+                    break;}
+            case '+':
+                    {
+                        if (peak(1) == '+') {
+                            tokens.push_back(tokenizeOP(TOKEN_INCREMENT, '+'));
+                            break;
+                            continue;
+                        } else {
+                            tokens.push_back(tokenizespecial(TOKEN_PLUSOP));
 
-    // show the entire line from the source
-    std::cerr << "  " << linenum << " | " << currentLine.str() << "\n";
+                        }
+                        break;
+                    }
+            case '-':
+                    {
+                        if (peak(1) == '=') {
+                            tokens.push_back(tokenizeOP(TOKEN_DECREMENT, '-'));
+                            break;
+                            continue;
+                        } else {
+                            tokens.push_back(tokenizespecial(TOKEN_MINUSOP));
+                            advance(); // consume '='
+                        }
+                        break;
+                    }
+            case '*':
+                    {tokens.push_back(tokenizespecial(TOKEN_MULOP));
+                    break;}
+            case '/':
+                    {tokens.push_back(tokenizespecial(TOKEN_DIVOP));
+                    break;}
+            case '\\':
+                    {tokens.push_back(tokenizeSTR(TOKEN_BACKLASH));
+                    break;}
+            case '#':
+                    {tokens.push_back(tokenizespecial(TOKEN_HASH));
+                    break;}
+            case '@':
+                    {tokens.push_back(tokenizespecial(TOKEN_ATSYM)); 
+                    break;}
+            case '!':
+                    {
+                        if (peak(1) == '=') {
+                            tokens.push_back(tokenizeOP(TOKEN_NEQOP, '='));
+                            break;
+                            continue;
+                        } else {
+                            tokens.push_back(tokenizespecial(TOKEN_NOTOP));
+                            advance(); // consume '='
+                        }
+                        break;
+                    } 
+            case '>':
+                    {
+                        if (peak(1) == '=') {
+                            tokens.push_back(tokenizeOP(TOKEN_GTE, '='));
+                            break;
+                            continue;
+                        } else {
+                            tokens.push_back(tokenizespecial(TOKEN_GT));
+                            advance(); // consume '='
+                        }
+                        break;
+                    }
+            case '<':
+                    {
+                        if (peak(1) == '=') {
+                            tokens.push_back(tokenizeOP(TOKEN_LTE, '='));
+                            break;
+                            continue;
+                        } else {
+                            tokens.push_back(tokenizespecial(TOKEN_LT));
+                            advance(); // consume '='
+                        }
+                        break;
+                    }
+            case '{':
+                    {tokens.push_back(tokenizespecial(TOKEN_LBRACE));
+                    break;}
+            case '}':
+                    {tokens.push_back(tokenizespecial(TOKEN_RBRACE));
+                    break;}
+            case '[':
+                    {tokens.push_back(tokenizespecial(TOKEN_LBRACKET));
+                    break;}
+            case ']':
+                    {tokens.push_back(tokenizespecial(TOKEN_RBRACKET));
+                    break;}
+            case ',':
+                    {tokens.push_back(tokenizespecial(TOKEN_COMMA));
+                    break;}
+            case ':':
+                    {tokens.push_back(tokenizespecial(TOKEN_COLON));
+                    break;}
+            case '\n':
+                    {
+                        tokens.push_back(tokenizespecial(TOKEN_NEWLINE));
+                        linenum++;
+                        charnum = 1;
+                        
+                        currentLine = std::stringstream();
+                        
+                        break;
+                    }
+            case '\0':
+                    {
+                        Token * newtoken = new Token();
+                        newtoken->TYPE = TOKEN_EOF;
+                        newtoken->value = "EOF";
+                        newtoken->lineno = linenum;
+                        newtoken->sourceLine = currentLine.str();
+                        newtoken->charno = charnum;
+                        tokens.push_back(newtoken);
+                        noteof = false;
+                        break;}
+            
+            default:
+                {
+                currentLine << current;
+                charnum++;
+                std::cerr << "\nParserError: " << "Unknown character: "
+                << " at line " << linenum
+                << ", column " << charnum << "\n";
 
-    // pointer to the error character
-    std::cerr << "    ";
-    for (int i = 1; i < charnum; ++i)
-        std::cerr << " ";
-    std::cerr << " ^\n\n";
-            std::cout << "Unknown character: " << current << std::endl;
-            std::cout << "at line: " << linenum << " char: " << charnum << std::endl;
-            exit(1);
+                // show the entire line from the source
+                std::cerr << "  " << linenum << " | " << currentLine.str() << "\n";
+
+                // pointer to the error character
+                std::cerr << "    ";
+                for (int i = 1; i < charnum; ++i)
+                    std::cerr << " ";
+                std::cerr << " ^\n\n";
+                std::cout << "Unknown character: " << current << std::endl;
+                std::cout << "at line: " << linenum << " char: " << charnum << std::endl;
+                exit(1);
             }
         }
         

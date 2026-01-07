@@ -3,6 +3,7 @@ const ctx = canvas.getContext("2d");
 
 canvas.width = window.innerWidth;
 canvas.height = window.innerHeight;
+ctx.fill("nonzero");
 
 let frame = 0;
 
@@ -32,7 +33,7 @@ class Particle {
   draw() {
     if (this.alpha <= 0) return;
 
-    ctx.strokeStyle = `rgba(255, 255, 255, ${this.alpha})`;
+    ctx.strokeStyle = `rgba(255, 255, 255, ${this.alpha /2})`;
     ctx.lineWidth = 1;
     ctx.beginPath();
     ctx.moveTo(this.x, this.y);
@@ -57,7 +58,7 @@ class Particle {
 
     if (distance < target.radius) {
       // Smooth alpha based on proximity to the last known point
-      let proximityAlpha = 1 - distance / target.radius;
+      let proximityAlpha = (1 - distance / target.radius ) / 2;
       this.alpha = proximityAlpha;
 
       // Gentle interactive push

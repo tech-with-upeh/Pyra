@@ -593,8 +593,6 @@ extern "C" {
 			    Module._handleEvent($0);
 		    });
         }, event);
-
-        std::cout << event << std::endl;
     }
 }
 
