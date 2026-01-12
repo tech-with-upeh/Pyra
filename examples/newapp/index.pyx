@@ -50,8 +50,9 @@ page("about Page", route="/about") {
     }
 }
 } */
+/*actual xode */
 
-page(route="about") {
+page("main page") {
     h = Platform().height
     w = Platform().width
     onmount() {
@@ -68,4 +69,5 @@ page(route="about") {
         print("kk")
     }
     canvas("hero", height=h, width=w)
+    text("hello")
 }

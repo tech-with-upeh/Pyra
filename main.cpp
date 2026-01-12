@@ -39,7 +39,6 @@ string getProjectRoot(const string& root, bool useroot = false) {
         cerr << "Error: Couldnt find a config file to run!'\n";
         exit(1);
     }
-    // fallback to default folder "MyApp"
     return "MyApp";
 }
 

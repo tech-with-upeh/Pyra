@@ -12,9 +12,9 @@ void updateUI() {
 }
 auto page_1 = make_shared<VPage>();
 int main() {
-	Router::add("/about",page_1);
+	Router::add("/",page_1);
 	page_1->builder = [&](VPage& page) {
-		page.setTitle("Create Helios App");
+		page.setTitle("main page");
 
 		auto h = Platform().height();
 		auto w = Platform().width();
@@ -41,6 +41,10 @@ int main() {
 		canvas_1.width = w;
 
 	page.addChild(canvas_1);
+		
+		VNode text_2("p","hello");
+
+	page.addChild(text_2);
 		};
 	EM_ASM({
 		Module._handleRoute(allocateUTF8(window.location.pathname));
