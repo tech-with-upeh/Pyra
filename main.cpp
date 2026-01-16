@@ -999,7 +999,7 @@ void cleanProject(const string& pname) {
     string root = getProjectRoot(pname);
     if (fs::exists("web/generated.cpp")) {
         fs::remove("web/generated.cpp");
-        cout << "[clean] cleaned project folder: " << root << endl;
+        cout << "[helios] cleaned project folder: " << root << endl;
     }
 }
 
@@ -1053,8 +1053,5 @@ int main(int argc, char ** argv) {
     } else {
         cout << "Unknown command: " << cmd << "\n";
     }
-    
-    // WebEngine webengine;
-    // cout << webengine.HandleAst(root);
     return 0;
 }

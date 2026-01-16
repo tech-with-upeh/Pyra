@@ -10,7 +10,9 @@ add_executable(helios
     src/parser.cpp
     src/semantics.cpp
     src/webengine/webengine.cpp
+    
 )
+
 
 target_include_directories(helios
     PRIVATE
@@ -20,6 +22,11 @@ target_include_directories(helios
 
 # Optional: warnings (safe)
 if (MSVC)
+    find_package(Boost REQUIRED COMPONENTS beast)
+    target_link_libraries(helios
+        PRIVATE
+        Boost::beast     # headers
+    )
     target_compile_options(helios PRIVATE /w)  #W4
 else()
     target_compile_options(helios PRIVATE -w)
