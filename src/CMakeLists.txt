@@ -4,7 +4,6 @@ project(Helios LANGUAGES CXX)
 set(CMAKE_CXX_STANDARD 20)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 
-
 add_executable(helios
     main.cpp
     src/lexer.cpp
@@ -13,13 +12,6 @@ add_executable(helios
     src/webengine/webengine.cpp
 )
 
-if(WIN32)
-    find_package(Boost REQUIRED COMPONENTS beast)
-        target_link_libraries(helios PRIVATE
-            ws2_32
-            Boost::beast
-        )
-endif() 
 
 target_include_directories(helios
     PRIVATE
@@ -28,7 +20,13 @@ target_include_directories(helios
 )
 
 # Optional: warnings (safe)
-if (MSVC)   
+if (MSVC)
+    set(CMAKE_TOOLCHAIN_FILE "C:/vcpkg/scripts/buildsystems/vcpkg.cmake")
+    find_package(Boost REQUIRED COMPONENTS beast)
+    target_link_libraries(helios
+        PRIVATE
+        Boost::beast     # headers
+    )
     target_compile_options(helios PRIVATE /w)  #W4
 else()
     target_compile_options(helios PRIVATE -w)

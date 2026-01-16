@@ -3,3 +3,16 @@ g++.exe -fdiagnostics-color=always -g main.cpp -o main.exe
 emcc index.cpp -o index.js -sEXPORTED_RUNTIME_METHODS=ccall,cwrap -sALLOW_MEMORY_GROWTH
 
 emcc web/generated.cpp -o web/main.js -sEXPORTED_FUNCTIONS='["_main","_invokeVNodeCallback","_js_insertHTML","_js_setTitle","_malloc","_free", "_handleRoute", "_animatefps", "_handleEvent"]' -sEXPORTED_RUNTIME_METHODS='["ccall","cwrap", "stringToUTF8","lengthBytesUTF8"]' -sALLOW_MEMORY_GROWTH -sASSERTIONS=1 -sDEFAULT_LIBRARY_FUNCS_TO_INCLUDE='$allocateUTF8'
+
+--------------------------------------------------------------------
+
+[cmake]
+needs vcpkg for boost/beast/openssl
+windows ->
+    cmake --preset=default
+    cmake --build build
+
+linux -> 
+    cd build
+    cmake .
+    cmake --build ..
