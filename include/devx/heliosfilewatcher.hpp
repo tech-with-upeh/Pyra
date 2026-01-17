@@ -17,6 +17,9 @@ class FileWatcher : public std::enable_shared_from_this<FileWatcher> {
     std::function<void()> on_change_;
     std::string extension_;
 
+    boost::asio::steady_timer throttle_timer_;
+    bool cooling_down_ = false;
+
 public:
     FileWatcher(boost::asio::io_context& ioc, fs::path dir,
                 const std::string& extension,
@@ -24,6 +27,7 @@ public:
         : dir_(std::move(dir)),
           ioc_(ioc),
           timer_(ioc),
+          throttle_timer_(ioc),
           on_change_(on_change),
           extension_(extension)
     {}
@@ -43,24 +47,47 @@ private:
     }
 
     void poll() {
-        timer_.expires_after(500ms); // poll every 500ms
+        timer_.expires_after(500ms);
         timer_.async_wait([self = shared_from_this()](const boost::system::error_code&) {
             bool changed = false;
+
             for (auto& entry : fs::recursive_directory_iterator(self->dir_)) {
-                if (!fs::is_regular_file(entry) || entry.path().extension() != self->extension_) continue;
+                if (!fs::is_regular_file(entry) ||
+                    entry.path().extension() != self->extension_)
+                    continue;
 
                 auto path = entry.path();
                 auto write_time = fs::last_write_time(path);
 
-                if (!self->last_write_.contains(path) || self->last_write_[path] != write_time) {
+                if (!self->last_write_.contains(path) ||
+                    self->last_write_[path] != write_time)
+                {
                     self->last_write_[path] = write_time;
                     changed = true;
                 }
             }
 
-            if (changed && self->on_change_) self->on_change_();
+            if (changed) {
+                self->maybe_fire();
+            }
 
-            self->poll(); // repeat
+            self->poll();
+        });
+    }
+
+    void maybe_fire() {
+        if (cooling_down_)
+            return; // ignore changes during cooldown
+
+        // Fire immediately
+        if (on_change_) on_change_();
+
+        // Start cooldown timer
+        cooling_down_ = true;
+        throttle_timer_.expires_after(2s);
+        throttle_timer_.async_wait([self = shared_from_this()](const boost::system::error_code& ec) {
+            if (ec) return;
+            self->cooling_down_ = false; // allow next change
         });
     }
 };

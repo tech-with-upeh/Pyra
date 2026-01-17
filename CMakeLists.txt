@@ -6,7 +6,23 @@ set(CMAKE_CXX_STANDARD_REQUIRED ON)
 
 
 add_executable(helios
-    src/devserver.cpp
+    main.cpp
+    src/lexer.cpp
+    src/parser.cpp
+    src/semantics.cpp
+    src/webengine/webengine.cpp
+    src/core/core.cpp
+    src/devx/server.cpp
+    src/devx/websocket.cpp
+)
+
+
+target_include_directories(helios
+    PRIVATE
+        ${PROJECT_SOURCE_DIR}/include
+        ${PROJECT_SOURCE_DIR}/include/web
+        ${PROJECT_SOURCE_DIR}/include/devx
+        ${PROJECT_SOURCE_DIR}/include/core
 )
 
 if(WIN32)
@@ -17,11 +33,6 @@ if(WIN32)
             Boost::beast
         )
 endif() 
-
-target_include_directories(helios
-    PRIVATE
-        ${PROJECT_SOURCE_DIR}/include/devx
-)
 
 # Optional: warnings (safe)
 if (MSVC)   

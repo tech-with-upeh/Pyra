@@ -1,13 +1,9 @@
-#include <iostream>
-#include <fstream>
-#include <sstream>
-#include <string>
-#include <vector>
 #include <filesystem>
 #include <algorithm>
 #include <cstdlib>
 #include <cstring>
 
+#include "core.hpp"
 #include "lexer.hpp"
 #include "parser.hpp"
 #include "astvisualise.hpp"
@@ -23,14 +19,9 @@
 #include "websocketserver.hpp"
 #include "heliosfilewatcher.hpp"
 
-namespace beast = boost::beast;
-namespace http = beast::http;
-namespace websocket = beast::websocket;
-namespace net = boost::asio;
-using tcp = net::ip::tcp;
-using namespace std;
 
 namespace fs = std::filesystem;
+using namespace std;
 
 class listener : public std::enable_shared_from_this<listener> {
     tcp::acceptor acceptor_;
@@ -61,8 +52,10 @@ private:
     }
 };
 
-// --------------------- Config ---------------------
-string getProjectRoot(const string& root, bool useroot = false) {
+
+Core::Core() {}
+
+string Core::getProjectRoot(const string& root, bool useroot) {
     string file;
     if(useroot) {
         file = root + "/helios.config";
@@ -84,13 +77,12 @@ string getProjectRoot(const string& root, bool useroot = false) {
     return "MyApp";
 }
 
-void saveProjectRoot(const string& root) {
+void Core::saveProjectRoot(const string& root) {
     ofstream config(root+ "/helios.config");
     config << "project_root=" << root << "\n";
 }
 
-// --------------------- File Generation ---------------------
-void generateFiles(const vector<string>& targets, const string& pname) {
+void Core::generateFiles(const vector<string>& targets, const string& pname) {
     string root = getProjectRoot(pname, true);
     if (!fs::exists(root)) {
         cerr << "Trying to access root but doesnt exist" << endl;
@@ -849,7 +841,7 @@ void generateFiles(const vector<string>& targets, const string& pname) {
 }
 
 
-void builder() {
+void Core::builder() {
     ifstream sourcefile("index.ink");
     stringstream buffer;
     char temp;
@@ -868,33 +860,28 @@ void builder() {
     // std::cout << "\n==== AST Visualization ====\n";
     // printAST(root);
     // std::cout << "\n==== AST Visualization ENDed ====\n";
-    cout << "Root Node has " << root->SUB_STATEMENTS.size() << " sub-statements." << endl;
-    cout << "[i] Finished Parsing [i]" << endl;
+    // cout << "Root Node has " << root->SUB_STATEMENTS.size() << " sub-statements." << endl;
+    // cout << "[i] Finished Parsing [i]" << endl;
 
     SemanticAnalyzer analyzer;
     analyzer.analyze(root);
-    cout << "[i] Finished Semantic Analysing [i]" << endl;
+    //cout << "[i] Finished Semantic Analysing [i]" << endl;
     WebEngine gen;
     if (!gen.gen(root)) {
         cerr << "write failed\n";
         exit(1);
     }
-    cout << "[Helios] Compiled Projects Successfully! [Helios]\n";
+    //cout << "[Helios] Compiled Projects Successfully! [Helios]\n";
 
     string cmd = "em++ web/generated.cpp -o web/main.js " 
         "-sEXPORTED_FUNCTIONS=\"['_main','_invokeVNodeCallback','_js_insertHTML','_js_setTitle','_malloc','_free', '_handleRoute', '_animatefps', '_handleEvent', '_animatefps', '_handleEvent']\" "
         "-sEXPORTED_RUNTIME_METHODS=\"['ccall','cwrap','stringToUTF8','lengthBytesUTF8']\" "
-        "-sALLOW_MEMORY_GROWTH=1 -sASSERTIONS=1 -sDEFAULT_LIBRARY_FUNCS_TO_INCLUDE='$allocateUTF8'";
+        "-sALLOW_MEMORY_GROWTH=1 -sASSERTIONS=1 -w -sDEFAULT_LIBRARY_FUNCS_TO_INCLUDE='$allocateUTF8'";
     system(cmd.c_str());
 }
 
 
-// --------------------- Run DEV ---------------------
-/*
-
-helios dev web-> should start a development socket for specified target....// dont forget!!!!!!!!
-*/
-void devTarget(const vector<string>& targets, const string& pname) {
+void Core::devTarget(const vector<string>& targets, const string& pname) {
     string root = getProjectRoot(pname);
 
     if (!targets.empty()) {
@@ -902,18 +889,11 @@ void devTarget(const vector<string>& targets, const string& pname) {
         if (target == "web") {
             if(targets.size() > 1) {
                 string flag = targets.at(1);
-                if(flag == "-b") {
-                    cout << "[web] Building for development... \n";
-                    builder();
-                } else {
-                    if (flag != "web" && flag != "android" && flag != "ios") {
-                        cerr << "cant run multiple targets!!" << endl;
-                    } else {
-                        cerr << "Unknown Flag: " << flag << endl;
-                        exit(1);
-                    }
-                }
+                cerr << "Unknown Flag: " << flag << endl;
+                exit(1);
             }
+            cout << "[Helios] Building for development... \n";
+            builder();
             try {
                 net::io_context ioc{1};
 
@@ -922,7 +902,9 @@ void devTarget(const vector<string>& targets, const string& pname) {
                     "./",
                     ".ink",
                     [&]() {
-                        std::cout << "[Watcher] .ink file changed → reload WS clients\n";
+                        std::cout << "Hot Reloading (Not done!) -->";
+                        builder();
+                        std::cout << "Done -->\n";
                         websocket_manager::broadcast("reload");  // send "reload" to all connected WebSocket clients
                     }
                 );
@@ -932,10 +914,10 @@ void devTarget(const vector<string>& targets, const string& pname) {
 
                 std::make_shared<listener>(
                     ioc,
-                    tcp::endpoint{tcp::v4(), 9000}
+                    tcp::endpoint{tcp::v4(), 8000}
                 )->run();
 
-                std::cout << "Started running at http://localhost:900\n";
+                std::cout << "Compiled Successfully!\nStarted running at http://localhost:8000\n";
                 ioc.run();
             }
             catch (std::exception& e) {
@@ -982,8 +964,9 @@ void devTarget(const vector<string>& targets, const string& pname) {
     }
 }
 
+
 // --------------------- Run Production ---------------------
-void runTarget(const vector<string>& targets, const string& pname) {
+void Core::runTarget(const vector<string>& targets, const string& pname) {
     string root = getProjectRoot(pname);
 
     if (!targets.empty()) {
@@ -996,8 +979,8 @@ void runTarget(const vector<string>& targets, const string& pname) {
                     cout << "[PRODUCTION][web] Compiling for production... [PRODUCTION]\n";
                 } else {
                     if (flag != "web" && flag != "android" && flag != "ios") {
-                       cerr << "Unknown Flag: " << flag << endl;
-                       exit(1); 
+                    cerr << "Unknown Flag: " << flag << endl;
+                    exit(1); 
                     }
                 }
             }
@@ -1041,7 +1024,7 @@ void runTarget(const vector<string>& targets, const string& pname) {
 }
 
 // --------------------- Build ---------------------
-void buildTarget(const vector<string>& targets, const string& pname) {
+void Core::buildTarget(const vector<string>& targets, const string& pname) {
     string root = getProjectRoot(pname);
 
     for (auto& target : targets) {
@@ -1062,7 +1045,7 @@ void buildTarget(const vector<string>& targets, const string& pname) {
 
 
 // --------------------- Clean ---------------------
-void cleanProject(const string& pname) {
+void Core::cleanProject(const string& pname) {
     string root = getProjectRoot(pname);
     if (fs::exists("web/generated.cpp")) {
         fs::remove("web/generated.cpp");
@@ -1070,55 +1053,3 @@ void cleanProject(const string& pname) {
     }
 }
 
- 
-int main(int argc, char ** argv) {
-    if (argc < 2) {
-        cout << "Usage: helios.exe <command> [target]\n";
-        return 0;
-    }
-
-    string cmd = argv[1];
-    vector<string> targets;
-    transform(cmd.begin(), cmd.end(), cmd.begin(), ::tolower);
-    if (argc >= 3) {
-        targets.assign(argv + 2, argv + argc);
-    } else {
-        // default targets
-        if(cmd != "create") {targets = {"web", "android", "ios"};}
-    }
-
-    
-    
-    if (cmd == "create") {
-        if (targets.empty()) { cerr << "[Error]: Name is required\n";
-        return 0; }
-        string projectName = targets[0];
-        if(fs::exists(projectName)) {
-            cerr << "[Error]: Cant Create " << projectName <<" \n[Error]: It already exists" << endl;
-            return 0; 
-        } else {
-            fs::create_directory(projectName);
-        }
-        saveProjectRoot(projectName);
-        cout << "[create] Created project folder: " << projectName << "\n";
-        generateFiles({"web", "android", "ios"}, projectName);
-    } else if (cmd == "dev") {
-        string projectName = targets[0];
-       
-        devTarget(targets, projectName);
-    }else if (cmd == "run") {
-        string projectName = targets[0];
-       
-        runTarget(targets, projectName);
-    } else if (cmd == "build") {
-        string projectName = targets[0];
-        
-        buildTarget(targets, projectName);
-    } else if (cmd == "clean") {
-        string projectName = targets[0];
-        cleanProject(projectName);
-    } else {
-        cout << "Unknown command: " << cmd << "\n";
-    }
-    return 0;
-}

@@ -54,7 +54,7 @@ int main() {
 
         auto watcher = std::make_shared<FileWatcher>(
             ioc,
-            "./web",
+            "./",
             ".ink",
             [&]() {
                 std::cout << "[Watcher] .ink file changed → reload WS clients\n";
@@ -70,7 +70,7 @@ int main() {
             tcp::endpoint{tcp::v4(), 9000}
         )->run();
 
-        std::cout << "Server running at http://localhost:8080\n";
+        std::cout << "Started running at http://localhost:900\n";
         ioc.run();
     }
     catch (std::exception& e) {
